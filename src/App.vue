@@ -13,6 +13,7 @@ import SpellsSection from './components/sections/SpellsSection.vue'
 import MusicSection from './components/sections/MusicSection.vue'
 import ReferencesSection from './components/sections/ReferencesSection.vue'
 import DiarySection from './components/sections/DiarySection.vue'
+import ToastHost from './components/ui/ToastHost.vue'
 
 const store = useCampaignStore()
 useSettingsStore()
@@ -39,4 +40,5 @@ onMounted(async () => {
     <DiarySection :active="active === 'sDiary'" />
   </template>
   <DiceRoller />
+  <ToastHost />
 </template>

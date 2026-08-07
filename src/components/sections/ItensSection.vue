@@ -4,6 +4,7 @@ import { useCampaignStore } from '../../stores/campaign'
 import type { Item } from '../../types'
 import { RAR_ORDER, RAR_COLORS, RAR_BG } from '../../constants'
 import { fileToDataUrl } from '../../utils/image'
+import { searchMagicItems, type MagicItemCandidate } from '../../utils/magicitems'
 import BaseModal from '../ui/BaseModal.vue'
 
 defineProps<{ active: boolean }>()
@@ -13,6 +14,17 @@ const camp = computed(() => store.activeCampaign)
 const itens = computed(() => camp.value.itens || [])
 
 const RARIDADES = ['Uncommon', 'Rare', 'Very Rare', 'Legendary', 'Artifact']
+
+// Import SRD
+const importName = ref('')
+const importing = ref(false)
+const importMsg = ref('')
+const chooser = reactive({
+  open: false,
+  query: '',
+  candidates: [] as MagicItemCandidate[],
+  selected: null as MagicItemCandidate | null
+})
 
 // Formulário
 const form = reactive({ nome: '', tipo: '', raridade: '', attune: 'no', desc: '' })
@@ -52,6 +64,64 @@ function rarBg(r: string | null) {
 }
 function metaText(it: Item) {
   return [it.tipo || '', it.attune === 'yes' ? '⚡ Attunement' : ''].filter(Boolean).join(' · ')
+}
+
+async function importFromSRD() {
+  const n = importName.value.trim()
+  if (!n) return
+  importing.value = true
+  importMsg.value = ''
+  try {
+    const candidates = await searchMagicItems(n)
+    if (!candidates.length) {
+      importMsg.value = 'Nenhum item encontrado para "' + n + '".'
+      return
+    }
+    if (candidates.length === 1) {
+      importCandidate(candidates[0])
+      return
+    }
+    chooser.query = n
+    chooser.candidates = candidates
+    chooser.selected = candidates[0]
+    chooser.open = true
+  } catch (e) {
+    importMsg.value = e instanceof Error ? e.message : 'Erro ao importar.'
+  } finally {
+    importing.value = false
+  }
+}
+
+function closeChooser() {
+  chooser.open = false
+  chooser.selected = null
+}
+
+function selectCandidate(c: MagicItemCandidate) {
+  chooser.selected = c
+}
+
+function importSelected() {
+  if (chooser.selected) importCandidate(chooser.selected)
+}
+
+function importCandidate(c: MagicItemCandidate) {
+  camp.value.itens.push({ id: Date.now(), img: null, ...c.item })
+  importMsg.value = '✔ "' + c.name + '"' + (c.edition ? ' (' + c.edition + ')' : '') + ' importado!'
+  importName.value = ''
+  closeChooser()
+}
+
+function previewMeta(c: MagicItemCandidate) {
+  return [
+    c.tipo || '',
+    c.raridade || '',
+    c.attune === 'yes' ? '⚡ Attunement' : '',
+    c.weaponDetail ? 'Dano: ' + c.weaponDetail : '',
+    c.armorDetail ? 'CA: ' + c.armorDetail : ''
+  ]
+    .filter(Boolean)
+    .join(' · ')
 }
 
 async function addItem() {
@@ -151,6 +221,18 @@ function onDrop(e: DragEvent, tid: number) {
 <template>
   <div class="section" :class="{ active }">
     <h2 class="sTitle">Itens Mágicos</h2>
+
+    <div class="card">
+      <div style="display: flex; gap: 0.5rem; align-items: flex-end; flex-wrap: wrap">
+        <div class="fGrp">
+          <label>Importar do SRD 5e (Open5e)</label>
+          <input v-model="importName" type="text" placeholder="Ex: Sword +1, Bag of Holding..." @keyup.enter="importFromSRD" />
+        </div>
+        <button class="btn btnRed" :disabled="importing" @click="importFromSRD">{{ importing ? 'Buscando...' : '⬇ Importar' }}</button>
+      </div>
+      <div v-if="importMsg" style="font-family: var(--fN); font-size: 0.75rem; color: var(--muted); margin-top: 0.35rem">{{ importMsg }}</div>
+    </div>
+
     <div class="card">
       <div class="fRow">
         <div class="fGrp"><label>Nome</label><input v-model="form.nome" type="text" placeholder="Ex: Espada +1" /></div>
@@ -267,6 +349,87 @@ function onDrop(e: DragEvent, tid: number) {
       </div>
       <div class="fGrp" style="margin-top: 0.7rem"><label>Descrição</label><textarea v-model="edit.desc" style="min-height: 90px"></textarea></div>
       <div style="text-align: right; margin-top: 0.9rem"><button class="btn btnRed" @click="saveEdit">Salvar</button></div>
+    </div>
+  </BaseModal>
+
+  <!-- Seletor de resultados do SRD -->
+  <BaseModal :open="chooser.open" @close="closeChooser">
+    <div class="modal" style="max-width: 720px; width: 94vw">
+      <div class="chooserHead">
+        <h3>Escolha o item</h3>
+        <div class="chooserHeadBtns">
+          <button
+            class="btn btnRed sm"
+            :disabled="!chooser.selected"
+            :title="chooser.selected ? 'Importar ' + chooser.selected.name : 'Selecione um item'"
+            @click="importSelected"
+          >
+            ⬇ Importar
+          </button>
+          <button class="mClose chooserClose" type="button" @click="closeChooser">✕</button>
+        </div>
+      </div>
+      <p style="font-family: var(--fB); font-size: 0.9rem; color: var(--muted); margin-bottom: 0.8rem">
+        {{ chooser.candidates.length }} resultados para "{{ chooser.query }}". Clique para ver os detalhes · duplo clique para importar.
+      </p>
+      <div class="chooserWrap">
+        <div class="chooserList">
+          <button
+            v-for="(c, i) in chooser.candidates"
+            :key="c.key + i"
+            type="button"
+            class="chooseRow"
+            :class="{ selected: chooser.selected?.key === c.key }"
+            @click="selectCandidate(c)"
+            @dblclick="importCandidate(c)"
+          >
+            <span v-if="chooser.selected?.key === c.key" class="chooseRowMark" aria-hidden="true">▶</span>
+            <div style="flex: 1; min-width: 0">
+              <div style="font-family: var(--fH); font-weight: 700; color: var(--red)">{{ c.name }}</div>
+              <div style="font-family: var(--fN); font-size: 0.72rem; color: var(--muted)">
+                {{ c.sourceName }}<span v-if="c.tipo"> · {{ c.tipo }}</span><span v-if="c.raridade"> · {{ c.raridade }}</span>
+              </div>
+            </div>
+            <span
+              v-if="c.edition"
+              class="dtChip"
+              :title="c.sourceName"
+              :style="
+                c.editionKey === '5e-2024'
+                  ? 'background:#1a6b2a;color:#fff;border-color:#1a6b2a'
+                  : c.editionKey === '5e-2014'
+                    ? 'background:#8b0000;color:#fff;border-color:#8b0000'
+                    : 'border-color:var(--border);color:var(--muted)'
+              "
+              >{{ c.edition }}</span
+            >
+          </button>
+        </div>
+        <div class="chooserPreview">
+          <template v-if="chooser.selected">
+            <div class="chooserPreviewLabel">Visualizando</div>
+            <div class="chooserPreviewTitle">{{ chooser.selected.name }}</div>
+            <div
+              v-if="chooser.selected.raridade"
+              class="chooserPreviewRarity"
+              :style="{
+                background: rarBg(chooser.selected.raridade),
+                color: rarColor(chooser.selected.raridade),
+                borderColor: rarColor(chooser.selected.raridade)
+              }"
+            >
+              {{ chooser.selected.raridade }}
+            </div>
+            <div class="chooserPreviewMeta">
+              {{ chooser.selected.sourceName }}<span v-if="chooser.selected.edition"> · {{ chooser.selected.edition }}</span>
+            </div>
+            <div v-if="previewMeta(chooser.selected)" class="chooserPreviewMeta">{{ previewMeta(chooser.selected) }}</div>
+            <div v-if="chooser.selected.desc" class="chooserPreviewDesc">{{ chooser.selected.desc }}</div>
+            <div v-else class="chooserPreviewEmpty">Sem descrição disponível.</div>
+          </template>
+          <div v-else class="chooserPreviewEmpty">Clique em um item da lista para ver os detalhes.</div>
+        </div>
+      </div>
     </div>
   </BaseModal>
 
