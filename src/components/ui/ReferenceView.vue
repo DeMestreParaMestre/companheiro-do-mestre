@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import type { Reference } from '../../types'
 import { youtubeThumb, youtubeWatchUrl } from '../../utils/youtube'
+import { parseTableContent } from '../../utils/refTable'
 
 const props = defineProps<{ reference: Reference }>()
 defineEmits<{ openImage: [ref: Reference] }>()
@@ -9,13 +10,7 @@ defineEmits<{ openImage: [ref: Reference] }>()
 const ytThumb = computed(() => youtubeThumb(props.reference.url))
 const ytWatch = computed(() => youtubeWatchUrl(props.reference.url))
 
-const rows = computed(() =>
-  String(props.reference.content ?? '')
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter(Boolean)
-    .map((l) => l.split(',').map((c) => c.trim()))
-)
+const table = computed(() => parseTableContent(props.reference.content ?? ''))
 const listItems = computed(() =>
   String(props.reference.content ?? '')
     .split(/\r?\n/)
@@ -36,14 +31,26 @@ const listItems = computed(() =>
     <p v-if="reference.type === 'imagem' && reference.content" class="refCaption">{{ reference.content }}</p>
 
     <table v-else-if="reference.type === 'tabela'" class="refTable">
-      <thead v-if="rows.length">
+      <thead v-if="table.cells.length">
         <tr>
-          <th v-for="(c, ci) in rows[0]" :key="ci">{{ c }}</th>
+          <th
+            v-for="(c, ci) in table.cells[0]"
+            :key="ci"
+            :style="{ textAlign: table.align[0]?.[ci] || 'left' }"
+          >
+            {{ c }}
+          </th>
         </tr>
       </thead>
       <tbody>
-        <tr v-for="(r, ri) in rows.slice(1)" :key="ri">
-          <td v-for="(c, ci) in r" :key="ci">{{ c }}</td>
+        <tr v-for="(r, ri) in table.cells.slice(1)" :key="ri">
+          <td
+            v-for="(c, ci) in r"
+            :key="ci"
+            :style="{ textAlign: table.align[ri + 1]?.[ci] || 'left' }"
+          >
+            {{ c }}
+          </td>
         </tr>
       </tbody>
     </table>
