@@ -13,6 +13,7 @@ import ImagePopup from '../ui/ImagePopup.vue'
 import ReferenceView from '../ui/ReferenceView.vue'
 import CategorySelect from '../ui/CategorySelect.vue'
 import TableEditor from '../ui/TableEditor.vue'
+import { appConfirm } from '../../composables/useAppDialog'
 
 defineProps<{ active: boolean }>()
 
@@ -260,8 +261,8 @@ function toggleFolder(key: string) {
   else collapsed.add(key)
 }
 
-function removeReference(id: number) {
-  if (!confirm('Remover esta referência?')) return
+async function removeReference(id: number) {
+  if (!(await appConfirm('Remover esta referência?', { title: 'Remover', confirmLabel: 'Remover', danger: true }))) return
   camp.value.references = (camp.value.references || []).filter((r) => r.id !== id)
 }
 

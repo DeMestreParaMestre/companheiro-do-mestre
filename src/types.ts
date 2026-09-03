@@ -20,6 +20,13 @@ export interface Creature {
   legActionsMax?: number
   legActions?: number
   conditionDurations?: Record<string, number>
+  /** PJ vinculado (sync de HP com Personagens). */
+  personagemId?: number
+  /** Salvamentos contra morte (PJ a 0 HP). */
+  deathSaveSuccesses?: number
+  deathSaveFailures?: number
+  /** 3 sucessos — estável a 0 HP até cura ou novo dano. */
+  stable?: boolean
 }
 
 export interface CombatLogEntry {
@@ -62,11 +69,15 @@ export interface PartyMember {
   name: string
   hpMax: number
   ac: number | null
+  /** Personagem da campanha vinculado a este slot da party. */
+  personagemId?: number
 }
 
 export interface Personagem {
   id: number
   name: string
+  /** HP atual (fora do combate e sincronizado com a iniciativa). */
+  hp?: number | null
   hpMax: number | null
   ac: number | null
   type: string | null
@@ -96,6 +107,27 @@ export interface DiaryEntry {
   tags?: string[]
 }
 
+export interface EncounterSlot {
+  name: string
+  fichaId?: string | number | ''
+  hpMax: number
+  ac: number | null
+  qty: number
+  initBonus?: number | null
+  resist?: string[]
+  vuln?: string[]
+  immune?: string[]
+  isLegendary?: boolean
+  legActionsMax?: number
+}
+
+export interface EncounterTemplate {
+  id: number
+  name: string
+  notes?: string
+  slots: EncounterSlot[]
+}
+
 export interface Campaign {
   id: string
   name: string
@@ -115,6 +147,7 @@ export interface Campaign {
   refSubOrder?: Record<string, string[]>
   songs?: Song[]
   playlists?: Playlist[]
+  encounters?: EncounterTemplate[]
 }
 
 // Música individual (link do YouTube) da ferramenta Músicas.

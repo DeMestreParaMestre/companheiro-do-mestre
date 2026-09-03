@@ -6,6 +6,7 @@ import { RAR_ORDER, RAR_COLORS, RAR_BG } from '../../constants'
 import { fileToDataUrl } from '../../utils/image'
 import { searchMagicItems, type MagicItemCandidate } from '../../utils/magicitems'
 import BaseModal from '../ui/BaseModal.vue'
+import { appAlert, appConfirm } from '../../composables/useAppDialog'
 
 defineProps<{ active: boolean }>()
 
@@ -14,6 +15,8 @@ const camp = computed(() => store.activeCampaign)
 const itens = computed(() => camp.value.itens || [])
 
 const RARIDADES = ['Uncommon', 'Rare', 'Very Rare', 'Legendary', 'Artifact']
+
+const showForm = ref(false)
 
 // Import SRD
 const importName = ref('')
@@ -124,10 +127,28 @@ function previewMeta(c: MagicItemCandidate) {
     .join(' · ')
 }
 
+function resetForm() {
+  form.nome = ''
+  form.tipo = ''
+  form.raridade = ''
+  form.attune = 'no'
+  form.desc = ''
+  if (imgInput.value) imgInput.value.value = ''
+}
+
+function showAddForm() {
+  resetForm()
+  showForm.value = true
+}
+
+function hideAddForm() {
+  showForm.value = false
+}
+
 async function addItem() {
   const nome = form.nome.trim()
   if (!nome) {
-    alert('Digite o nome!')
+    await appAlert('Digite o nome!')
     return
   }
   let img: string | null = null
@@ -142,16 +163,11 @@ async function addItem() {
     desc: form.desc.trim() || null,
     img
   })
-  form.nome = ''
-  form.tipo = ''
-  form.raridade = ''
-  form.attune = 'no'
-  form.desc = ''
-  if (imgInput.value) imgInput.value.value = ''
+  hideAddForm()
 }
 
-function removeItem(id: number) {
-  if (!confirm('Remover este item?')) return
+async function removeItem(id: number) {
+  if (!(await appConfirm('Remover este item?', { title: 'Remover', confirmLabel: 'Remover', danger: true }))) return
   camp.value.itens = itens.value.filter((it) => it.id !== id)
 }
 
@@ -233,29 +249,38 @@ function onDrop(e: DragEvent, tid: number) {
       <div v-if="importMsg" style="font-family: var(--fN); font-size: 0.75rem; color: var(--muted); margin-top: 0.35rem">{{ importMsg }}</div>
     </div>
 
-    <div class="card">
-      <div class="fRow">
-        <div class="fGrp"><label>Nome</label><input v-model="form.nome" type="text" placeholder="Ex: Espada +1" /></div>
-        <div class="fGrp" style="max-width: 140px"><label>Tipo</label><input v-model="form.tipo" type="text" placeholder="Ex: Arma" /></div>
-        <div class="fGrp" style="max-width: 145px">
-          <label>Raridade</label>
-          <select v-model="form.raridade">
-            <option value="">— selecione —</option>
-            <option v-for="r in RARIDADES" :key="r" :value="r">{{ r }}</option>
-          </select>
+    <div v-if="showForm" style="margin-bottom: 1rem">
+      <div class="card">
+        <div class="fRow">
+          <div class="fGrp"><label>Nome</label><input v-model="form.nome" type="text" placeholder="Ex: Espada +1" /></div>
+          <div class="fGrp" style="max-width: 140px"><label>Tipo</label><input v-model="form.tipo" type="text" placeholder="Ex: Arma" /></div>
+          <div class="fGrp" style="max-width: 145px">
+            <label>Raridade</label>
+            <select v-model="form.raridade">
+              <option value="">— selecione —</option>
+              <option v-for="r in RARIDADES" :key="r" :value="r">{{ r }}</option>
+            </select>
+          </div>
+          <div class="fGrp" style="max-width: 120px">
+            <label>Attunamento</label>
+            <select v-model="form.attune">
+              <option value="no">Não</option>
+              <option value="yes">Sim</option>
+            </select>
+          </div>
         </div>
-        <div class="fGrp" style="max-width: 120px">
-          <label>Attunamento</label>
-          <select v-model="form.attune">
-            <option value="no">Não</option>
-            <option value="yes">Sim</option>
-          </select>
+        <label class="ulabel" @click="imgInput?.click()">⬡ Clique para carregar imagem</label>
+        <input ref="imgInput" type="file" accept="image/*" />
+        <div class="fGrp" style="margin-top: 0.8rem"><label>Descrição</label><textarea v-model="form.desc" style="min-height: 90px" placeholder="Descreva o item..."></textarea></div>
+        <div style="display: flex; gap: 0.5rem; margin-top: 0.8rem; justify-content: flex-end">
+          <button class="btn btnOut" @click="hideAddForm">Cancelar</button>
+          <button class="btn btnRed" @click="addItem">+ Salvar Item</button>
         </div>
       </div>
-      <label class="ulabel" @click="imgInput?.click()">⬡ Clique para carregar imagem</label>
-      <input ref="imgInput" type="file" accept="image/*" />
-      <div class="fGrp" style="margin-top: 0.8rem"><label>Descrição</label><textarea v-model="form.desc" style="min-height: 90px" placeholder="Descreva o item..."></textarea></div>
-      <div style="text-align: right; margin-top: 0.8rem"><button class="btn btnRed" @click="addItem">+ Adicionar Item</button></div>
+    </div>
+
+    <div v-if="!showForm" style="margin-bottom: 0.8rem">
+      <button class="btn btnRed" @click="showAddForm">+ Adicionar Item</button>
     </div>
 
     <div style="display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.8rem; flex-wrap: wrap">

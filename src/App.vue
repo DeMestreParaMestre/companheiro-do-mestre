@@ -14,6 +14,7 @@ import MusicSection from './components/sections/MusicSection.vue'
 import ReferencesSection from './components/sections/ReferencesSection.vue'
 import DiarySection from './components/sections/DiarySection.vue'
 import ToastHost from './components/ui/ToastHost.vue'
+import AppDialog from './components/ui/AppDialog.vue'
 
 const store = useCampaignStore()
 useSettingsStore()
@@ -41,4 +42,5 @@ onMounted(async () => {
   </template>
   <DiceRoller />
   <ToastHost />
+  <AppDialog />
 </template>

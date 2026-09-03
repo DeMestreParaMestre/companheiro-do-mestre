@@ -7,6 +7,7 @@ import { exportDiaryToWord } from '../../utils/exportWord'
 import { parseMentions } from '../../utils/mentions'
 import BaseModal from '../ui/BaseModal.vue'
 import ImagePopup from '../ui/ImagePopup.vue'
+import { appAlert } from '../../composables/useAppDialog'
 
 defineProps<{ active: boolean }>()
 
@@ -18,6 +19,7 @@ const tagFilter = ref('')
 // Ordenação: 'timeline' (padrão), 'newest', 'oldest'.
 const sortMode = ref('timeline')
 const timeline = computed(() => sortMode.value === 'timeline')
+const showForm = ref(false)
 const dDay = ref('')
 const dTitle = ref('')
 const dBody = ref('')
@@ -72,10 +74,26 @@ function parseTags(input: string): string[] {
   )
 }
 
-function addDiaryEntry() {
+function resetForm() {
+  dDay.value = ''
+  dTitle.value = ''
+  dBody.value = ''
+  dTags.value = ''
+}
+
+function showAddForm() {
+  resetForm()
+  showForm.value = true
+}
+
+function hideAddForm() {
+  showForm.value = false
+}
+
+async function addDiaryEntry() {
   const body = dBody.value.trim()
   if (!body) {
-    alert('Descreva o que aconteceu!')
+    await appAlert('Descreva o que aconteceu!')
     return
   }
   camp.value.diary.unshift({
@@ -86,10 +104,7 @@ function addDiaryEntry() {
     date: new Date().toLocaleDateString('pt-BR'),
     tags: parseTags(dTags.value)
   })
-  dDay.value = ''
-  dTitle.value = ''
-  dBody.value = ''
-  dTags.value = ''
+  hideAddForm()
 }
 
 function onSortChange() {
@@ -188,17 +203,27 @@ function onDrop(e: DragEvent, tid: number) {
       <span class="sCount">{{ searchCount }}</span>
       <button class="btn btnOut sm" @click="search = ''">✕</button>
     </div>
-    <div class="card">
-      <div class="fRow">
-        <div class="fGrp" style="max-width: 200px"><label>Dia</label><input v-model="dDay" type="text" placeholder="Dia 1" /></div>
-        <div class="fGrp"><label>Título</label><input v-model="dTitle" type="text" placeholder="Ex: O Ataque" /></div>
+
+    <div v-if="showForm" style="margin-bottom: 1rem">
+      <div class="card">
+        <div class="fRow">
+          <div class="fGrp" style="max-width: 200px"><label>Dia</label><input v-model="dDay" type="text" placeholder="Dia 1" /></div>
+          <div class="fGrp"><label>Título</label><input v-model="dTitle" type="text" placeholder="Ex: O Ataque" /></div>
+        </div>
+        <div class="fGrp" style="margin-bottom: 0.6rem">
+          <label>O que aconteceu? <span style="text-transform: none; font-weight: 400">(use @Nome para mencionar personagens/fichas)</span></label>
+          <textarea v-model="dBody" placeholder="Descreva os eventos... Ex: @Aldric enfrentou o goblin"></textarea>
+        </div>
+        <div class="fGrp" style="margin-bottom: 0.8rem"><label>Tags (separadas por vírgula)</label><input v-model="dTags" type="text" placeholder="combate, cidade, missão" /></div>
+        <div style="display: flex; gap: 0.5rem; justify-content: flex-end">
+          <button class="btn btnOut" @click="hideAddForm">Cancelar</button>
+          <button class="btn btnRed" @click="addDiaryEntry">+ Salvar Entrada</button>
+        </div>
       </div>
-      <div class="fGrp" style="margin-bottom: 0.6rem">
-        <label>O que aconteceu? <span style="text-transform: none; font-weight: 400">(use @Nome para mencionar personagens/fichas)</span></label>
-        <textarea v-model="dBody" placeholder="Descreva os eventos... Ex: @Aldric enfrentou o goblin"></textarea>
-      </div>
-      <div class="fGrp" style="margin-bottom: 0.8rem"><label>Tags (separadas por vírgula)</label><input v-model="dTags" type="text" placeholder="combate, cidade, missão" /></div>
-      <button class="btn btnRed" @click="addDiaryEntry">⬡ Registrar no Diário</button>
+    </div>
+
+    <div v-if="!showForm" style="margin-bottom: 0.8rem">
+      <button class="btn btnRed" @click="showAddForm">+ Adicionar Entrada</button>
     </div>
 
     <div v-if="allTags.length" style="display: flex; gap: 0.35rem; align-items: center; margin-bottom: 0.7rem; flex-wrap: wrap">

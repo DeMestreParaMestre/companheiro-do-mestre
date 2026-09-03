@@ -3,6 +3,9 @@ import { ref, reactive, computed } from 'vue'
 import { useCampaignStore } from '../../stores/campaign'
 import type { Personagem, Item } from '../../types'
 import { fileToDataUrl } from '../../utils/image'
+import { syncFromPersonagem, unlinkPersonagemFromParty, personagemCurrentHp, personagemMaxHp } from '../../utils/partyLink'
+import { applyLongRestFromPersonagemCard } from '../../utils/longRest'
+import { appAlert, appConfirm } from '../../composables/useAppDialog'
 import BaseModal from '../ui/BaseModal.vue'
 import ImagePopup from '../ui/ImagePopup.vue'
 
@@ -19,7 +22,7 @@ function isItemName(name: string) {
 
 // ---- Formulário (novo) ----
 const showForm = ref(false)
-const form = reactive({ nome: '', hp: '', ac: '', classe: '', pp: '', cristais: '0', bg: '' })
+const form = reactive({ nome: '', hpMax: '', hpAtual: '', ac: '', classe: '', pp: '', cristais: '0', bg: '' })
 const newAt = reactive({ sel: ['', '', ''], txt: ['', '', ''] })
 const pjImgInput = ref<HTMLInputElement | null>(null)
 
@@ -35,7 +38,8 @@ function optionsForNew(i: number): Item[] {
 
 function showPjForm() {
   form.nome = ''
-  form.hp = ''
+  form.hpMax = ''
+  form.hpAtual = ''
   form.ac = ''
   form.classe = ''
   form.pp = ''
@@ -63,16 +67,19 @@ function atVals(sel: string[], txt: string[]): string[] {
 async function addPJ() {
   const nome = form.nome.trim()
   if (!nome) {
-    alert('Digite o nome!')
+    await appAlert('Digite o nome!')
     return
   }
   let img: string | null = null
   const file = pjImgInput.value?.files?.[0]
   if (file) img = await fileToDataUrl(file)
+  const hpMax = parseInt(form.hpMax) || null
+  const hpAtual = parseInt(form.hpAtual)
   camp.value.personagens.push({
     id: Date.now(),
     name: nome,
-    hpMax: parseInt(form.hp) || null,
+    hp: !isNaN(hpAtual) ? hpAtual : hpMax,
+    hpMax,
     ac: parseInt(form.ac) || null,
     type: form.classe.trim() || null,
     pp: parseInt(form.pp) || null,
@@ -84,19 +91,37 @@ async function addPJ() {
   hidePjForm()
 }
 
-function removePJ(id: number) {
-  if (!confirm('Remover?')) return
+async function longRestPJ(p: Personagem) {
+  if (
+    !(await appConfirm(`Descanso longo de ${p.name}?\nRestaura HP ao máximo e limpa salvamentos na iniciativa.`, {
+      title: 'Long Rest',
+      confirmLabel: 'Descansar'
+    }))
+  )
+    return
+  applyLongRestFromPersonagemCard(camp.value, p)
+}
+
+async function removePJ(id: number) {
+  if (!(await appConfirm('Remover este personagem?', { title: 'Remover', confirmLabel: 'Remover', danger: true }))) return
   camp.value.personagens = personagens.value.filter((p) => String(p.id) !== String(id))
+  unlinkPersonagemFromParty(camp.value, id)
 }
 
 function metaText(p: Personagem) {
-  return [p.hpMax ? 'HP:' + p.hpMax : '', p.ac ? 'AC:' + p.ac : '', p.pp ? 'PP:' + p.pp : '', p.cristais ? '💎' + p.cristais : '']
+  const hpPart =
+    p.hpMax != null
+      ? `HP:${personagemCurrentHp(p)}/${personagemMaxHp(p)}`
+      : p.hp != null
+        ? 'HP:' + p.hp
+        : ''
+  return [hpPart, p.ac ? 'AC:' + p.ac : '', p.pp ? 'PP:' + p.pp : '', p.cristais ? '💎' + p.cristais : '']
     .filter(Boolean)
     .join(' · ')
 }
 
 // ---- Editar ----
-const edit = reactive({ open: false, id: 0, nome: '', hp: '', ac: '', classe: '', pp: '', cristais: '0', bg: '', preview: null as string | null })
+const edit = reactive({ open: false, id: 0, nome: '', hpMax: '', hpAtual: '', ac: '', classe: '', pp: '', cristais: '0', bg: '', preview: null as string | null })
 const editAt = reactive({ sel: ['', '', ''], txt: ['', '', ''] })
 const epjImgInput = ref<HTMLInputElement | null>(null)
 
@@ -114,7 +139,8 @@ function optionsForEdit(i: number): Item[] {
 function openEdit(p: Personagem) {
   edit.id = p.id
   edit.nome = p.name || ''
-  edit.hp = p.hpMax != null ? String(p.hpMax) : ''
+  edit.hpMax = p.hpMax != null ? String(p.hpMax) : ''
+  edit.hpAtual = String(personagemCurrentHp(p))
   edit.ac = p.ac != null ? String(p.ac) : ''
   edit.classe = p.type || ''
   edit.pp = p.pp != null ? String(p.pp) : ''
@@ -138,8 +164,10 @@ async function saveEdit() {
   if (!p) return
   const n = edit.nome.trim()
   if (n) p.name = n
-  const h = parseInt(edit.hp)
-  if (h) p.hpMax = h
+  const hMax = parseInt(edit.hpMax)
+  if (!isNaN(hMax) && hMax > 0) p.hpMax = hMax
+  const hCur = parseInt(edit.hpAtual)
+  if (!isNaN(hCur)) p.hp = hCur
   const a = parseInt(edit.ac)
   if (a) p.ac = a
   p.type = edit.classe.trim() || null
@@ -149,6 +177,7 @@ async function saveEdit() {
   p.bg = edit.bg.trim() || null
   const file = epjImgInput.value?.files?.[0]
   if (file) p.img = await fileToDataUrl(file)
+  syncFromPersonagem(camp.value, p)
   edit.open = false
 }
 
@@ -210,7 +239,8 @@ function onDrop(e: DragEvent, tid: number) {
       <div class="card">
         <div class="fRow">
           <div class="fGrp"><label>Nome</label><input v-model="form.nome" type="text" placeholder="Ex: Aldric" /></div>
-          <div class="fGrp" style="max-width: 82px"><label>HP Máx</label><input v-model="form.hp" type="number" /></div>
+          <div class="fGrp" style="max-width: 82px"><label>HP Máx</label><input v-model="form.hpMax" type="number" /></div>
+          <div class="fGrp" style="max-width: 82px"><label>HP Atual</label><input v-model="form.hpAtual" type="number" placeholder="= máx" /></div>
           <div class="fGrp" style="max-width: 68px"><label>AC</label><input v-model="form.ac" type="number" /></div>
         </div>
         <div class="fRow">
@@ -323,6 +353,7 @@ function onDrop(e: DragEvent, tid: number) {
           {{ p.bg }}
         </div>
         <button class="btn btnOut sm" style="width: 100%; margin-top: 0.3rem" @click="openEdit(p)">✏ Editar</button>
+        <button class="btn btnOut sm" style="width: 100%; margin-top: 0.3rem" title="Restaura HP ao máximo" @click="longRestPJ(p)">☽ Long Rest</button>
         <button class="btn btnDng sm" style="width: 100%; margin-top: 0.3rem" @click="removePJ(p.id)">✕ Remover</button>
       </div>
     </div>
@@ -335,7 +366,8 @@ function onDrop(e: DragEvent, tid: number) {
       <h3>Editar Personagem</h3>
       <div class="fRow">
         <div class="fGrp"><label>Nome</label><input v-model="edit.nome" type="text" /></div>
-        <div class="fGrp" style="max-width: 82px"><label>HP Máx</label><input v-model="edit.hp" type="number" /></div>
+        <div class="fGrp" style="max-width: 82px"><label>HP Máx</label><input v-model="edit.hpMax" type="number" /></div>
+        <div class="fGrp" style="max-width: 82px"><label>HP Atual</label><input v-model="edit.hpAtual" type="number" /></div>
         <div class="fGrp" style="max-width: 68px"><label>AC</label><input v-model="edit.ac" type="number" /></div>
       </div>
       <div class="fRow">

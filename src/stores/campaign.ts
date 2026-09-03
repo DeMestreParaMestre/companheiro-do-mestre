@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed, watch } from 'vue'
 import type { Campaign, PersistedData } from '../types'
 import { idbGet, idbSet } from '../composables/useIdbStorage'
+import { migratePartyLinks } from '../utils/partyLink'
 
 const KEY = 'nc_data'
 
@@ -20,7 +21,8 @@ function newCampaign(name: string): Campaign {
     combatLog: [],
     references: [],
     songs: [],
-    playlists: []
+    playlists: [],
+    encounters: []
   }
 }
 
@@ -99,6 +101,7 @@ export const useCampaignStore = defineStore('campaign', () => {
       if (!c.references) c.references = []
       if (!c.songs) c.songs = []
       if (!c.playlists) c.playlists = []
+      if (!c.encounters) c.encounters = []
       const campSongs = c.songs
       // Categoria padrão para músicas antigas do acervo.
       campSongs.forEach((s) => {
@@ -128,12 +131,43 @@ export const useCampaignStore = defineStore('campaign', () => {
         })
       })
       if (embeddedIds.size) c.songs = campSongs.filter((s) => !embeddedIds.has(s.id))
+      migratePartyLinks(c)
     })
+  }
+
+  /** Em dev: garante campanha demo com dados de teste. */
+  async function ensureDevSeed(hadPersistedData: boolean) {
+    if (!import.meta.env.DEV) return
+
+    const { createDevSeedCampaign, DEV_CAMPAIGN_ID } = await import('../dev/seedCampaign')
+    const reset = import.meta.env.VITE_DEV_SEED_RESET === 'true'
+    let sandbox = campaigns.value.find((c) => c.id === DEV_CAMPAIGN_ID)
+
+    if (reset && sandbox) {
+      campaigns.value = campaigns.value.filter((c) => c.id !== DEV_CAMPAIGN_ID)
+      sandbox = undefined
+    }
+
+    if (!sandbox) {
+      sandbox = createDevSeedCampaign()
+      if (!hadPersistedData) {
+        campaigns.value = [sandbox]
+      } else {
+        campaigns.value.push(sandbox)
+      }
+    }
+
+    // Sem dados salvos: abre direto na sandbox. Com dados: só cria se faltar.
+    if (!hadPersistedData || import.meta.env.VITE_DEV_SEED_ACTIVE === 'true') {
+      activeId.value = DEV_CAMPAIGN_ID
+    }
   }
 
   async function init() {
     await loadStorage()
+    const hadPersistedData = campaigns.value.length > 0
     ensureDefaults()
+    await ensureDevSeed(hadPersistedData)
     try {
       await idbSet('_test', 'ok')
       // Armazenamento persistente funcionando normalmente: não exibe mensagem ao usuário.
