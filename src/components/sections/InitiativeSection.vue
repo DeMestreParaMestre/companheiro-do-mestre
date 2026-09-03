@@ -2,16 +2,44 @@
 import { ref, reactive, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useCampaignStore } from '../../stores/campaign'
 import { CONDS, DAMAGE_TYPES, REF_TYPES } from '../../constants'
-import type { Creature, Ficha, Reference } from '../../types'
+import type { Creature, Ficha, Reference, PartyMember, EncounterTemplate } from '../../types'
 import { useSettingsStore } from '../../stores/settings'
 import { rollInitiative } from '../../utils/dice'
 import { effectiveDamage, hpBarColor } from '../../utils/combat'
+import {
+  isInInitiative as creatureInInitiative,
+  partyMembersNotInInitiative,
+  sortCreaturesPreservingTurn,
+  adjustTurnAfterRemove
+} from '../../utils/initiative'
+import {
+  combatStatsFromPartyMember,
+  syncPersonagemFromCreature,
+  syncPersonagemFromPartyMember,
+  partyMemberHpLabel,
+  resolvePersonagemForPartyMember
+} from '../../utils/partyLink'
+import { applyLongRestToParty } from '../../utils/longRest'
 import { groupReferences } from '../../utils/refGroups'
 import { PLAYER_CHANNEL, type PlayerMessage } from '../../utils/playerChannel'
+import { spawnFromTemplate, templateSummary } from '../../utils/encounters'
 import BaseModal from '../ui/BaseModal.vue'
 import ImagePopup from '../ui/ImagePopup.vue'
 import StatblockModal from '../ui/StatblockModal.vue'
 import ReferenceView from '../ui/ReferenceView.vue'
+import MusicMiniBar from '../ui/MusicMiniBar.vue'
+import MusicPickerModal from '../ui/MusicPickerModal.vue'
+import DeathSavesBar from '../ui/DeathSavesBar.vue'
+import {
+  tracksDeathSaves,
+  onPartyDropToZero,
+  onCreatureDropToZero,
+  onPartyHealed,
+  addDeathSaveSuccess,
+  addDeathSaveFailure,
+  DEATH_SAVE_MAX
+} from '../../utils/deathSaves'
+import { appAlert, appConfirm } from '../../composables/useAppDialog'
 
 defineProps<{ active: boolean }>()
 
@@ -34,15 +62,19 @@ const cAc = ref('')
 const cQty = ref('1')
 const initBonusHint = ref('')
 
+const PARTY_LINK_PREFIX = 'party:'
+
 const linkedFichaBonus = computed(() => {
-  const f = camp.value.fichas.find((f) => String(f.id) === String(cFichaLink.value))
+  const id = cFichaLink.value
+  if (!id || id.startsWith(PARTY_LINK_PREFIX)) return 0
+  const f = camp.value.fichas.find((f) => String(f.id) === String(id))
   return f && f.initBonus != null ? f.initBonus : 0
 })
 
 function autofillFicha() {
   initBonusHint.value = ''
   const id = cFichaLink.value
-  if (!id) return
+  if (!id || id.startsWith(PARTY_LINK_PREFIX)) return
   const f = camp.value.fichas.find((f) => String(f.id) === String(id))
   if (!f) return
   cName.value = f.name
@@ -53,22 +85,36 @@ function autofillFicha() {
   }
 }
 
+function onFichaLinkChange() {
+  const id = cFichaLink.value
+  if (!id) return
+  if (id.startsWith(PARTY_LINK_PREFIX)) {
+    const name = id.slice(PARTY_LINK_PREFIX.length)
+    const m = camp.value.party.find((p) => p.name === name)
+    cFichaLink.value = ''
+    if (m && !isInInitiative(m.name)) openReaddInitiative(m)
+    return
+  }
+  autofillFicha()
+}
+
 function rollAddInit() {
   cInit.value = String(rollInitiative(linkedFichaBonus.value))
 }
 
-function addCreature() {
+async function addCreature() {
   const name = cName.value.trim()
   if (!name) {
-    alert('Digite o nome!')
+    await appAlert('Digite o nome!')
     return
   }
   const init = parseInt(cInit.value) || 0
   const hp = parseInt(cHpMax.value) || 1
   const ac = parseInt(cAc.value) || null
   const qty = Math.max(1, parseInt(cQty.value) || 1)
-  const f = camp.value.fichas.find((f) => String(f.id) === String(cFichaLink.value))
+  const f = camp.value.fichas.find((f) => String(f.id) === String(cFichaLink.value) && !String(cFichaLink.value).startsWith(PARTY_LINK_PREFIX))
   const initBonus = f && f.initBonus != null ? f.initBonus : null
+  const wasEmpty = !camp.value.creatures.length
   for (let i = 0; i < qty; i++) {
     camp.value.creatures.push({
       id: Date.now() + i,
@@ -84,7 +130,8 @@ function addCreature() {
       initBonus
     })
   }
-  camp.value.creatures.sort((a, b) => (b.initReal || b.init) - (a.initReal || a.init))
+  camp.value.currentTurn = sortCreaturesPreservingTurn(camp.value.creatures, camp.value.currentTurn)
+  if (wasEmpty) camp.value.currentTurn = -1
   cName.value = ''
   cInit.value = ''
   cHpMax.value = ''
@@ -92,7 +139,6 @@ function addCreature() {
   cQty.value = '1'
   cFichaLink.value = ''
   initBonusHint.value = ''
-  camp.value.currentTurn = -1
 }
 
 // ----- Lista / dividers -----
@@ -119,6 +165,57 @@ const rows = computed<Row[]>(() => {
 function isParty(name: string) {
   return camp.value.party.some((p) => p.name === name)
 }
+function isUnconscious(c: Creature) {
+  return tracksDeathSaves(c, isParty(c.name))
+}
+function hpDisplay(c: Creature) {
+  if (c.dead) return 'Morto'
+  if (isUnconscious(c)) return c.stable ? `Estável 0/${c.hpMax}` : `0/${c.hpMax}`
+  return `${c.hp}/${c.hpMax}`
+}
+function markDeathSaveSuccess(c: Creature) {
+  const r = addDeathSaveSuccess(c)
+  log(`${c.name}: +1 sucesso nos salvamentos (${c.deathSaveSuccesses}/${DEATH_SAVE_MAX})`)
+  if (r === 'stable') log(`${c.name} está estável a 0 HP`)
+}
+function markDeathSaveFailure(c: Creature) {
+  const r = addDeathSaveFailure(c, 1)
+  log(`${c.name}: +1 falha nos salvamentos (${c.deathSaveFailures}/${DEATH_SAVE_MAX})`)
+  if (r === 'dead') {
+    log(`${c.name} morreu`)
+    syncPersonagemFromCreature(camp.value, c)
+  }
+}
+function isInInitiative(name: string) {
+  return creatureInInitiative(name, camp.value.creatures)
+}
+const partyNotInInitiative = computed(() =>
+  partyMembersNotInInitiative(camp.value.party, camp.value.creatures)
+)
+function buildCreatureFromPartyMember(m: PartyMember, init: number, id = Date.now()): Creature {
+  const stats = combatStatsFromPartyMember(camp.value, m)
+  const ficha = camp.value.fichas.find((f) => f.name === m.name)
+  return {
+    id,
+    name: m.name,
+    init,
+    initReal: init,
+    hp: stats.hp,
+    hpMax: stats.hpMax,
+    ac: stats.ac,
+    fichaId: ficha ? ficha.id : '',
+    dead: stats.dead,
+    conditions: [],
+    initBonus: ficha && ficha.initBonus != null ? ficha.initBonus : null,
+    personagemId: stats.personagemId
+  }
+}
+function addPartyMemberToInitiative(m: PartyMember, init: number) {
+  if (isInInitiative(m.name)) return
+  camp.value.creatures.push(buildCreatureFromPartyMember(m, init))
+  camp.value.currentTurn = sortCreaturesPreservingTurn(camp.value.creatures, camp.value.currentTurn)
+  log(`${m.name} voltou à iniciativa (Init ${init})`)
+}
 function hpPct(c: Creature) {
   return c.hp > c.hpMax ? 100 : Math.max(0, Math.round((c.hp / c.hpMax) * 100))
 }
@@ -144,6 +241,7 @@ function pillLabel(c: Creature, k: string) {
 // ----- Turnos + rodadas -----
 function onTurnStart(c: Creature) {
   if (c.isLegendary && c.legActionsMax) c.legActions = c.legActionsMax
+  if (isUnconscious(c) && !c.stable) log(`${c.name}: salvamento contra morte`)
 }
 function tickDurations() {
   camp.value.creatures.forEach((c) => {
@@ -208,8 +306,10 @@ function moveCreature(id: number, dir: number) {
 }
 function removeCreature(id: number) {
   const c = camp.value
+  const idx = c.creatures.findIndex((x) => x.id === id)
+  if (idx < 0) return
   c.creatures = c.creatures.filter((x) => x.id !== id)
-  if (c.currentTurn >= c.creatures.length) c.currentTurn = c.creatures.length - 1
+  c.currentTurn = adjustTurnAfterRemove(c.currentTurn, idx, c.creatures.length)
 }
 
 // ----- Ações lendárias -----
@@ -232,6 +332,10 @@ function onDocClick(e: MouseEvent) {
 onMounted(() => {
   document.addEventListener('click', onDocClick)
   document.addEventListener('keydown', onShortcut)
+  playerChannel = new BroadcastChannel(PLAYER_CHANNEL)
+  playerChannel.onmessage = (e: MessageEvent<PlayerMessage>) => {
+    if (e.data?.type === 'ready') broadcastPlayer()
+  }
 })
 onBeforeUnmount(() => {
   document.removeEventListener('click', onDocClick)
@@ -330,9 +434,25 @@ function applyHp(type: string) {
       c.tempHp -= absorbed
       remaining -= absorbed
     }
+    const wasAboveZero = c.hp > 0
+    const party = isParty(c.name)
     c.hp = Math.max(0, c.hp - remaining)
-    if (c.hp === 0) c.dead = true
-    log(`${c.name} sofreu ${dmg}${typeLabel} de dano${c.dead ? ' e caiu' : ''}`)
+    if (party) {
+      if (c.hp === 0 && wasAboveZero) {
+        onPartyDropToZero(c)
+        log(`${c.name} sofreu ${dmg}${typeLabel} de dano e caiu inconsciente`)
+      } else if (c.hp === 0 && !wasAboveZero) {
+        delete c.stable
+        const died = addDeathSaveFailure(c, 1)
+        log(`${c.name} sofreu dano a 0 HP — +1 falha nos salvamentos`)
+        if (died) log(`${c.name} morreu`)
+      } else {
+        log(`${c.name} sofreu ${dmg}${typeLabel} de dano`)
+      }
+    } else {
+      if (c.hp === 0) onCreatureDropToZero(c)
+      log(`${c.name} sofreu ${dmg}${typeLabel} de dano${c.dead ? ' e morreu' : ''}`)
+    }
     if ((c.conditions || []).includes('Concentrating') && dmg > 0) {
       const cd = Math.max(10, Math.floor(dmg / 2))
       log(`${c.name}: teste de Concentração CD ${cd}`)
@@ -342,9 +462,11 @@ function applyHp(type: string) {
     }
   } else {
     c.hp += amt
-    if (c.hp > 0) c.dead = false
+    if (isParty(c.name) && c.hp > 0) onPartyHealed(c)
+    else if (c.hp > 0) c.dead = false
     log(`${c.name} curou ${amt}`)
   }
+  syncPersonagemFromCreature(camp.value, c)
   hpModal.open = false
 }
 
@@ -435,11 +557,17 @@ function saveEditCreature() {
     c.init = ni
     c.initReal = ni
   }
+  const prevHp = c.hp
   c.hp = parseInt(editCr.hp)
   c.hpMax = parseInt(editCr.hpMax) || c.hpMax
   c.ac = parseInt(editCr.ac) || null
   c.fichaId = editCr.fichaId
-  c.dead = c.hp <= 0
+  if (isParty(c.name)) {
+    if (c.hp > 0) onPartyHealed(c)
+    else if (c.hp === 0 && prevHp > 0) onPartyDropToZero(c)
+  } else {
+    c.dead = c.hp <= 0
+  }
   c.isLegendary = editCr.isLegendary
   const legMax = parseInt(editCr.legMax)
   c.legActionsMax = editCr.isLegendary && legMax > 0 ? legMax : undefined
@@ -447,7 +575,8 @@ function saveEditCreature() {
   c.resist = editCr.resist.length ? [...editCr.resist] : undefined
   c.vuln = editCr.vuln.length ? [...editCr.vuln] : undefined
   c.immune = editCr.immune.length ? [...editCr.immune] : undefined
-  camp.value.creatures.sort((a, b) => (b.initReal || b.init) - (a.initReal || a.init))
+  camp.value.currentTurn = sortCreaturesPreservingTurn(camp.value.creatures, camp.value.currentTurn)
+  syncPersonagemFromCreature(camp.value, c)
   editCr.open = false
 }
 
@@ -473,15 +602,26 @@ function autofillPartyFromPJ() {
   if (p.hpMax) pmHp.value = String(p.hpMax)
   if (p.ac) pmAc.value = String(p.ac)
 }
-function addPartyMember() {
+function partyLinkLabel(m: PartyMember) {
+  return resolvePersonagemForPartyMember(camp.value, m) ? '🔗' : ''
+}
+async function addPartyMember() {
   const n = pmNome.value.trim()
   if (!n) {
-    alert('Digite o nome!')
+    await appAlert('Digite o nome!')
     return
   }
   const h = parseInt(pmHp.value) || 1
   const a = parseInt(pmAc.value) || null
-  camp.value.party.push({ name: n, hpMax: h, ac: a })
+  const pjId = pmPJLink.value ? parseInt(pmPJLink.value) : undefined
+  let personagemId = pjId && !isNaN(pjId) ? pjId : undefined
+  if (!personagemId) {
+    const byName = (camp.value.personagens || []).find((p) => p.name === n)
+    if (byName) personagemId = byName.id
+  }
+  const member: PartyMember = { name: n, hpMax: h, ac: a, personagemId }
+  camp.value.party.push(member)
+  if (personagemId) syncPersonagemFromPartyMember(camp.value, member)
   pmNome.value = ''
   pmHp.value = ''
   pmAc.value = ''
@@ -501,7 +641,15 @@ function togglePMEdit(i: number) {
 function savePMEdit(i: number) {
   const n = pmEdit.name.trim()
   if (!n) return
-  camp.value.party[i] = { name: n, hpMax: parseInt(pmEdit.hp) || 1, ac: parseInt(pmEdit.ac) || null }
+  const prev = camp.value.party[i]
+  const member: PartyMember = {
+    name: n,
+    hpMax: parseInt(pmEdit.hp) || 1,
+    ac: parseInt(pmEdit.ac) || null,
+    personagemId: prev.personagemId
+  }
+  camp.value.party[i] = member
+  if (member.personagemId) syncPersonagemFromPartyMember(camp.value, member)
   pmEditIdx.value = -1
 }
 function removePartyMember(i: number) {
@@ -511,15 +659,20 @@ function removePartyMember(i: number) {
 function saveParty() {
   store.persist()
   partyModal.value = false
-  alert('Party salva!')
+  void appAlert('Party salva!', { title: 'Party' })
 }
 
 // ----- Novo combate -----
 const newCombat = reactive({ open: false, inits: [] as string[] })
-function openNewCombat() {
+async function openNewCombat() {
   const p = camp.value.party
   if (!p.length) {
-    if (confirm('Limpar criaturas e começar?')) {
+    if (
+      await appConfirm('Limpar criaturas e começar?', {
+        title: 'Novo combate',
+        confirmLabel: 'Limpar'
+      })
+    ) {
       camp.value.creatures = []
       camp.value.currentTurn = -1
       camp.value.round = 0
@@ -539,21 +692,30 @@ function startNewCombat() {
   c.round = 0
   c.party.forEach((m, i) => {
     const init = parseInt(newCombat.inits[i]) || 0
-    c.creatures.push({
-      id: Date.now() + i,
-      name: m.name,
-      init,
-      initReal: init,
-      hp: m.hpMax,
-      hpMax: m.hpMax,
-      ac: m.ac || null,
-      fichaId: '',
-      dead: false,
-      conditions: []
-    })
+    c.creatures.push(buildCreatureFromPartyMember(m, init, Date.now() + i))
   })
-  c.creatures.sort((a, b) => (b.initReal || b.init) - (a.initReal || a.init))
+  sortCreaturesPreservingTurn(c.creatures, -1)
   newCombat.open = false
+}
+
+// ----- Readicionar party à iniciativa (sem reiniciar o combate) -----
+const readdInit = reactive({ open: false, member: null as PartyMember | null, init: '' })
+function openReaddInitiative(m: PartyMember) {
+  readdInit.member = m
+  readdInit.init = ''
+  readdInit.open = true
+}
+function rollReaddInit() {
+  readdInit.init = String(rollInitiative(0))
+}
+function confirmReaddInitiative() {
+  const m = readdInit.member
+  if (!m || isInInitiative(m.name)) {
+    readdInit.open = false
+    return
+  }
+  addPartyMemberToInitiative(m, parseInt(readdInit.init) || 0)
+  readdInit.open = false
 }
 
 // ----- Log de combate -----
@@ -561,10 +723,10 @@ const showLog = ref(false)
 function clearLog() {
   camp.value.combatLog = []
 }
-function sendLogToDiary() {
+async function sendLogToDiary() {
   const entries = (camp.value.combatLog || []).slice().reverse()
   if (!entries.length) {
-    alert('O log está vazio.')
+    await appAlert('O log está vazio.')
     return
   }
   const body = entries.map((e) => (e.round ? `R${e.round}: ` : '') + e.text).join('\n')
@@ -575,11 +737,54 @@ function sendLogToDiary() {
     body,
     date: new Date().toLocaleDateString('pt-BR')
   })
-  alert('Resumo enviado ao Diário!')
+  await appAlert('Resumo enviado ao Diário!', { title: 'Diário' })
+}
+
+// ----- Encontros (carregar) -----
+const encModal = ref(false)
+
+const encounters = computed(() => camp.value.encounters || [])
+
+function openEncounters() {
+  encModal.value = true
+}
+
+async function longRestParty() {
+  if (!camp.value.party.length) {
+    await appAlert('Configure a party antes do descanso longo.')
+    return
+  }
+  if (
+    !(await appConfirm(
+      'Descanso longo da party?\nRestaura HP de todos os PJs e limpa salvamentos contra morte / HP temporário.',
+      { title: 'Long Rest', confirmLabel: 'Descansar' }
+    ))
+  ) {
+    return
+  }
+  const { restored } = applyLongRestToParty(camp.value)
+  log(`Descanso longo — ${restored.join(', ') || 'ninguém'}`)
+}
+
+function loadEncounter(enc: EncounterTemplate, mode: 'add' | 'replace', rollInit: boolean) {
+  const spawned = spawnFromTemplate(enc, { rollInit })
+  if (!spawned.length) return
+  const c = camp.value
+  const prevTurn = mode === 'replace' ? -1 : c.currentTurn
+  if (mode === 'replace') {
+    const partyCreatures = c.creatures.filter((cr) => isParty(cr.name))
+    c.creatures = [...partyCreatures, ...spawned]
+  } else {
+    c.creatures.push(...spawned)
+  }
+  c.currentTurn = sortCreaturesPreservingTurn(c.creatures, prevTurn)
+  log(`Encontro "${enc.name}" carregado (${templateSummary(enc)})`)
+  encModal.value = false
 }
 
 // ----- Painel de referências rápidas -----
 const refPanel = ref(false)
+const musicPicker = ref(false)
 const refSearch = ref('')
 const refTypeFilter = ref('')
 const refTypeLabel = (k: string) => REF_TYPES.find((t) => t.k === k)?.l || k
@@ -613,7 +818,6 @@ function openRefImage(r: Reference) {
 // ----- Tela de jogador (janela pop-up + BroadcastChannel) -----
 const settings = useSettingsStore()
 let playerChannel: BroadcastChannel | null = null
-let playerWin: Window | null = null
 
 function playerPayload(): PlayerMessage {
   const c = camp.value
@@ -631,24 +835,6 @@ function playerPayload(): PlayerMessage {
 }
 function broadcastPlayer() {
   playerChannel?.postMessage(playerPayload())
-}
-function openPlayerWindow() {
-  if (!playerChannel) {
-    playerChannel = new BroadcastChannel(PLAYER_CHANNEL)
-    // Quando a janela de jogador sinaliza que está pronta, envia o estado atual.
-    playerChannel.onmessage = (e: MessageEvent<PlayerMessage>) => {
-      if (e.data?.type === 'ready') broadcastPlayer()
-    }
-  }
-  // Se já estiver aberta, apenas foca; senão abre uma nova janela.
-  if (playerWin && !playerWin.closed) {
-    playerWin.focus()
-  } else {
-    const url = location.origin + location.pathname + location.search + '#player'
-    playerWin = window.open(url, PLAYER_CHANNEL, 'width=1280,height=800')
-  }
-  // Reenvia após a janela carregar (além do handshake "ready").
-  setTimeout(broadcastPlayer, 1000)
 }
 
 // Espelha em tempo real qualquer mudança relevante do combate.
@@ -678,9 +864,16 @@ function onShortcut(e: KeyboardEvent) {
       <div class="fRow">
         <div class="fGrp">
           <label>Vincular Ficha</label>
-          <select v-model="cFichaLink" @change="autofillFicha">
+          <select v-model="cFichaLink" @change="onFichaLinkChange">
             <option value="">— nenhuma —</option>
-            <option v-for="f in camp.fichas" :key="f.id" :value="f.id">{{ f.name }}</option>
+            <optgroup v-if="partyNotInInitiative.length" label="Party (fora da iniciativa)">
+              <option v-for="m in partyNotInInitiative" :key="'party-' + m.name" :value="PARTY_LINK_PREFIX + m.name">
+                ↩ {{ m.name }}
+              </option>
+            </optgroup>
+            <optgroup v-if="camp.fichas.length" label="Fichas">
+              <option v-for="f in camp.fichas" :key="f.id" :value="f.id">{{ f.name }}</option>
+            </optgroup>
           </select>
         </div>
         <div class="fGrp"><label>Nome</label><input v-model="cName" type="text" placeholder="Ex: Goblin" /></div>
@@ -704,17 +897,20 @@ function onShortcut(e: KeyboardEvent) {
     </div>
 
     <div style="display: flex; gap: 0.5rem; margin-bottom: 0.75rem; flex-wrap: wrap; align-items: center">
-      <button class="btn btnOut" @click="nextTurn">▶ Próximo Turno</button>
-      <button class="btn btnOut" @click="resetTurns">↺ Reiniciar</button>
-      <button class="btn btnOut" @click="openPartyConfig">⬡ Configurar Party</button>
+      <button class="btn btnOut sm" @click="nextTurn">▶ Próximo Turno</button>
+      <button class="btn btnOut sm" @click="resetTurns">↺ Reiniciar</button>
+      <button class="btn btnOut sm" @click="openPartyConfig">⬡ Configurar Party</button>
       <button class="btn btnDng sm" @click="openNewCombat">⬡ Novo Combate</button>
-      <button class="btn btnOut sm" title="Abre uma janela para o segundo monitor" @click="openPlayerWindow">🖥 Tela de Jogador</button>
+      <button class="btn btnOut sm" @click="openEncounters">⚔ Encontros</button>
+      <button class="btn btnOut sm" title="Restaura HP da party e limpa salvamentos" @click="longRestParty">☽ Long Rest</button>
       <button class="btn btnOut sm" @click="refPanel = true">📌 Referências</button>
       <span v-if="(camp.round || 0) > 0" class="roundBadge">⏱ Rodada {{ camp.round }}</span>
       <button class="btn btnOut sm" style="margin-left: auto" @click="showLog = !showLog">
         📜 Log{{ (camp.combatLog || []).length ? ' (' + (camp.combatLog || []).length + ')' : '' }}
       </button>
     </div>
+
+    <MusicMiniBar style="margin-bottom: 0.75rem" :on-pick="() => (musicPicker = true)" />
 
     <div v-if="showLog" class="card" style="max-height: 240px; overflow-y: auto">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem">
@@ -742,9 +938,10 @@ function onShortcut(e: KeyboardEvent) {
       <div v-if="!camp.creatures.length" class="empty">Nenhuma criatura.</div>
       <template v-for="(row, ri) in rows" :key="ri">
         <div v-if="'div' in row" class="divLine"><hr /><span>⬡ Init {{ row.div }}</span><hr /></div>
-        <div v-else class="cRow" :class="{ aTurn: row.i === camp.currentTurn, dead: row.c.dead }">
+        <div v-else class="cRow" :class="{ aTurn: row.i === camp.currentTurn, dead: row.c.dead, unconscious: isUnconscious(row.c) }">
           <div
             class="iBadge"
+            :class="{ iBadgeActing: row.i === camp.currentTurn }"
             :style="{
               background: isParty(row.c.name) ? '#2d6e2d' : '#8b0000',
               borderColor: isParty(row.c.name) ? '#1a4d1a' : '#5c0000',
@@ -774,6 +971,15 @@ function onShortcut(e: KeyboardEvent) {
                 <span v-if="!condMeta(k)?.custom && condMeta(k)" class="tip">{{ condMeta(k)?.d }}</span>
               </span>
             </div>
+            <DeathSavesBar
+              v-if="isUnconscious(row.c)"
+              :successes="row.c.deathSaveSuccesses ?? 0"
+              :failures="row.c.deathSaveFailures ?? 0"
+              :stable="row.c.stable"
+              style="margin-top: 0.35rem"
+              @success="markDeathSaveSuccess(row.c)"
+              @failure="markDeathSaveFailure(row.c)"
+            />
           </div>
           <div v-if="row.c.isLegendary && row.c.legActionsMax" class="legBox" title="Ações lendárias (clique para gastar)">
             ⚡
@@ -786,6 +992,9 @@ function onShortcut(e: KeyboardEvent) {
             ></span>
             <button class="btn btnOut sm" style="padding: 0.1rem 0.3rem; font-size: 0.65rem" @click="resetLeg(row.c)">↺</button>
           </div>
+          <div class="tIndSlot" :class="{ active: row.i === camp.currentTurn }" :aria-hidden="row.i !== camp.currentTurn">
+            <span class="tIndLabel">⬡ Agindo</span>
+          </div>
           <div class="hpArea">
             <button
               class="btn sm"
@@ -796,7 +1005,7 @@ function onShortcut(e: KeyboardEvent) {
             </button>
             <div>
               <div class="hpVal">
-                {{ row.c.dead ? 'Morto' : row.c.hp + '/' + row.c.hpMax }}{{ row.c.hp > row.c.hpMax ? ' ✨' : '' }}
+                {{ hpDisplay(row.c) }}{{ row.c.hp > row.c.hpMax ? ' ✨' : '' }}
                 <span v-if="row.c.tempHp" class="tempHpVal">+{{ row.c.tempHp }}</span>
               </div>
               <div class="hpWrap"><div class="hpBar" :style="{ width: hpPct(row.c) + '%', background: hpColor(row.c) }"></div></div>
@@ -829,7 +1038,6 @@ function onShortcut(e: KeyboardEvent) {
               </div>
             </div>
           </div>
-          <div v-if="row.i === camp.currentTurn" class="tInd">⬡ Agindo</div>
           <button class="btn sm btnOut" title="Ver statblock" @click="openStatblockFromCreature(row.c)">📋</button>
           <button class="btn sm btnOut" title="Editar" @click="openEditCreature(row.c)">✏</button>
           <button class="btn sm btnOut" style="padding: 0.24rem 0.4rem" @click="moveCreature(row.c.id, -1)">↑</button>
@@ -972,7 +1180,7 @@ function onShortcut(e: KeyboardEvent) {
       <button class="mClose" @click="partyModal = false">✕</button>
       <h3>Configurar Party</h3>
       <p style="font-family: var(--fB); font-size: 0.88rem; color: var(--muted); margin-bottom: 0.8rem; font-style: italic">
-        Entram automaticamente em Novo Combate.
+        Vincule a um personagem para sincronizar HP com a iniciativa. Entram automaticamente em Novo Combate.
       </p>
       <div>
         <div v-if="!camp.party.length" class="empty" style="padding: 0.5rem">Nenhum membro.</div>
@@ -981,10 +1189,22 @@ function onShortcut(e: KeyboardEvent) {
           :key="i"
           style="background: var(--bg); border: 1px solid var(--border); border-radius: 3px; margin-bottom: 0.4rem; padding: 0.5rem 0.6rem"
         >
-          <div style="display: grid; grid-template-columns: 1fr auto auto auto auto; gap: 0.35rem; align-items: center">
-            <span style="font-family: var(--fH); font-weight: 600; color: var(--red); overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{ m.name }}</span>
-            <span style="font-family: var(--fN); color: var(--muted); font-size: 0.78rem">HP:{{ m.hpMax }}</span>
+          <div style="display: grid; grid-template-columns: 1fr auto auto auto auto auto; gap: 0.35rem; align-items: center">
+            <span style="font-family: var(--fH); font-weight: 600; color: var(--red); overflow: hidden; text-overflow: ellipsis; white-space: nowrap"
+              >{{ partyLinkLabel(m) }} {{ m.name }}</span
+            >
+            <span style="font-family: var(--fN); color: var(--muted); font-size: 0.78rem">HP:{{ partyMemberHpLabel(camp, m) }}</span>
             <span v-if="m.ac" style="font-family: var(--fN); color: var(--muted); font-size: 0.78rem">AC:{{ m.ac }}</span>
+            <span v-else></span>
+            <button
+              v-if="!isInInitiative(m.name)"
+              class="btn btnOut sm"
+              style="padding: 0.2rem 0.45rem; font-size: 0.68rem"
+              title="Readicionar à fila de iniciativa"
+              @click="openReaddInitiative(m)"
+            >
+              + Init
+            </button>
             <span v-else></span>
             <button
               style="font-family: var(--fH); font-weight: 600; font-size: 0.72rem; padding: 0.24rem 0.48rem; border: 1px solid var(--border); background: transparent; color: var(--muted); border-radius: 3px; cursor: pointer"
@@ -1071,6 +1291,30 @@ function onShortcut(e: KeyboardEvent) {
     </div>
   </BaseModal>
 
+  <!-- Readicionar party à iniciativa -->
+  <BaseModal :open="readdInit.open" @close="readdInit.open = false">
+    <div class="modal" style="min-width: 280px; max-width: 400px; width: 90vw">
+      <button class="mClose" @click="readdInit.open = false">✕</button>
+      <h3>Readicionar à Iniciativa</h3>
+      <p v-if="readdInit.member" style="font-family: var(--fB); font-size: 0.88rem; color: var(--muted); margin-bottom: 0.8rem">
+        {{ readdInit.member.name }} · HP:{{ readdInit.member.hpMax }}{{ readdInit.member.ac ? ' · AC:' + readdInit.member.ac : '' }}
+      </p>
+      <div style="display: flex; align-items: flex-end; gap: 0.5rem; margin-bottom: 0.8rem">
+        <div class="fGrp" style="max-width: 120px">
+          <label>Iniciativa</label>
+          <input v-model="readdInit.init" type="number" placeholder="0" @keyup.enter="confirmReaddInitiative" />
+        </div>
+        <button class="btn btnOut sm" @click="rollReaddInit">🎲 Rolar</button>
+      </div>
+      <div style="text-align: right">
+        <button class="btn btnRed" @click="confirmReaddInitiative">✔ Readicionar</button>
+      </div>
+    </div>
+  </BaseModal>
+
+  <!-- Escolher música -->
+  <MusicPickerModal :open="musicPicker" @close="musicPicker = false" />
+
   <!-- Painel de referências rápidas -->
   <BaseModal :open="refPanel" @close="refPanel = false">
     <div class="modal" style="max-width: 560px; width: 92vw">
@@ -1125,4 +1369,27 @@ function onShortcut(e: KeyboardEvent) {
 
   <StatblockModal :open="statblock.open" :ficha="statblock.ficha" @close="statblock.open = false" />
   <ImagePopup :open="popup.open" :name="popup.name" :img="popup.img" @close="popup.open = false" />
+
+  <!-- Encontros (carregar) -->
+  <BaseModal :open="encModal" @close="encModal = false">
+    <div class="modal" style="max-width: 520px; width: 92vw">
+      <button class="mClose" @click="encModal = false">✕</button>
+      <h3>⚔ Carregar Encontro</h3>
+      <p v-if="!encounters.length" class="empty" style="padding: 0.8rem">
+        Nenhum encontro salvo. Crie em <strong>Fichas &amp; Status</strong>.
+      </p>
+      <div v-for="enc in encounters" :key="enc.id" class="encCard">
+        <div style="flex: 1; min-width: 0">
+          <div style="font-family: var(--fH); font-weight: 700; color: var(--red)">{{ enc.name }}</div>
+          <div style="font-family: var(--fN); font-size: 0.72rem; color: var(--muted); margin-top: 0.15rem">{{ templateSummary(enc) }}</div>
+          <div v-if="enc.notes" style="font-family: var(--fB); font-size: 0.82rem; color: var(--muted); margin-top: 0.25rem; font-style: italic">{{ enc.notes }}</div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 0.25rem; flex-shrink: 0">
+          <button class="btn btnRed sm" @click="loadEncounter(enc, 'add', false)">+ Adicionar</button>
+          <button class="btn btnOut sm" @click="loadEncounter(enc, 'add', true)">+ Adicionar (🎲 init)</button>
+          <button class="btn btnOut sm" @click="loadEncounter(enc, 'replace', false)">Substituir</button>
+        </div>
+      </div>
+    </div>
+  </BaseModal>
 </template>

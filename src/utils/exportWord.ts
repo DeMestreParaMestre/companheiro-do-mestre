@@ -1,4 +1,5 @@
 import type { DiaryEntry } from '../types'
+import { appAlert } from '../composables/useAppDialog'
 
 function esc(s: string): string {
   return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -10,10 +11,10 @@ function escMultiline(s: string): string {
   return esc(s).replace(/\r\n?|\n/g, '<br>')
 }
 
-export function exportDiaryToWord(diary: DiaryEntry[], campName: string) {
+export async function exportDiaryToWord(diary: DiaryEntry[], campName: string) {
   const entries = diary.slice().sort((a, b) => a.id - b.id)
   if (!entries.length) {
-    alert('O diário está vazio.')
+    await appAlert('O diário está vazio.')
     return
   }
   const name = campName || 'Campanha'

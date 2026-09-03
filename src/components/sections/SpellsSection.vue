@@ -4,7 +4,7 @@ import { searchSpells, fetchSources, type Spell, type SourceDoc } from '../../ut
 
 const props = defineProps<{ active: boolean }>()
 
-const system = ref('5e-2014') // '' = todos | '5e-2014' | '5e-2024'
+const system = ref('') // '' = todos | '5e-2014' | '5e-2024'
 const sourceKey = ref('') // '' = todas as fontes do sistema | chave de documento
 const query = ref('')
 const results = ref<Spell[]>([])

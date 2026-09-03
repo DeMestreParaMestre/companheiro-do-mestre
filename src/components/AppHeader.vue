@@ -5,6 +5,7 @@ import { useSettingsStore } from '../stores/settings'
 import type { PersistedData } from '../types'
 import * as gdrive from '../utils/gdrive'
 import BaseModal from './ui/BaseModal.vue'
+import { appAlert, appConfirm } from '../composables/useAppDialog'
 
 const store = useCampaignStore()
 const settings = useSettingsStore()
@@ -24,9 +25,9 @@ function openNewCamp() {
   newCampName.value = ''
   showNewCamp.value = true
 }
-function createCamp() {
+async function createCamp() {
   if (!newCampName.value.trim()) {
-    alert('Digite o nome!')
+    await appAlert('Digite o nome!')
     return
   }
   store.createCamp(newCampName.value)
@@ -43,9 +44,9 @@ function renameCamp() {
   showRenameCamp.value = false
 }
 
-function openDeleteCamp() {
+async function openDeleteCamp() {
   if (store.campaigns.length <= 1) {
-    alert('Não é possível apagar a única campanha.')
+    await appAlert('Não é possível apagar a única campanha.')
     return
   }
   showDeleteCamp.value = true
@@ -89,7 +90,14 @@ async function cloudUpload() {
 }
 async function cloudRestore() {
   if (!cloudToken.value) return
-  if (!confirm('Restaurar o backup da nuvem substituirá os dados atuais. Continuar?')) return
+  if (
+    !(await appConfirm('Restaurar o backup da nuvem substituirá os dados atuais. Continuar?', {
+      title: 'Restaurar backup',
+      confirmLabel: 'Restaurar',
+      danger: true
+    }))
+  )
+    return
   cloudBusy.value = true
   cloudMsg.value = ''
   try {
@@ -116,9 +124,9 @@ function onImport(e: Event) {
     try {
       const d = JSON.parse(ev.target?.result as string) as PersistedData
       store.importData(d)
-      alert('Importado!')
+      void appAlert('Importado!', { title: 'Importação' })
     } catch {
-      alert('Arquivo inválido.')
+      void appAlert('Arquivo inválido.')
     }
   }
   r.readAsText(f)

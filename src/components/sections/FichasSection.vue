@@ -1,13 +1,15 @@
 <script setup lang="ts">
 import { ref, reactive, computed } from 'vue'
 import { useCampaignStore } from '../../stores/campaign'
-import type { Ficha, StatEntry } from '../../types'
+import type { Ficha, StatEntry, EncounterSlot, EncounterTemplate } from '../../types'
+import { templateSummary } from '../../utils/encounters'
 import { fileToDataUrl } from '../../utils/image'
 import { searchMonsters, type MonsterCandidate } from '../../utils/open5e'
 import { toEntries, hasEntries } from '../../utils/statblock'
 import BaseModal from '../ui/BaseModal.vue'
 import StatEntryEditor from '../ui/StatEntryEditor.vue'
 import StatblockModal from '../ui/StatblockModal.vue'
+import { appAlert, appConfirm } from '../../composables/useAppDialog'
 
 defineProps<{ active: boolean }>()
 
@@ -43,6 +45,7 @@ const form = reactive({
 const formTraits = reactive<StatEntry[]>([])
 const formActions = reactive<StatEntry[]>([])
 const showAdvanced = ref(false)
+const showForm = ref(false)
 const fImgInput = ref<HTMLInputElement | null>(null)
 
 // Import SRD
@@ -75,10 +78,29 @@ function num(v: string): number | null {
   return isNaN(n) ? null : n
 }
 
+function resetForm() {
+  Object.keys(form).forEach((k) => ((form as Record<string, string>)[k] = ''))
+  formTraits.splice(0)
+  formActions.splice(0)
+  if (fImgInput.value) fImgInput.value.value = ''
+}
+
+function showAddForm() {
+  showForm.value = true
+}
+
+function hideAddForm() {
+  showForm.value = false
+  showAdvanced.value = false
+  importMsg.value = ''
+  importName.value = ''
+  resetForm()
+}
+
 async function addFicha() {
   const name = form.name.trim()
   if (!name) {
-    alert('Digite o nome!')
+    await appAlert('Digite o nome!')
     return
   }
   const initBonus = parseInt(form.initBonus)
@@ -106,13 +128,7 @@ async function addFicha() {
     traits: cleanEntries(formTraits),
     actions: cleanEntries(formActions)
   })
-  resetForm()
-}
-function resetForm() {
-  Object.keys(form).forEach((k) => ((form as Record<string, string>)[k] = ''))
-  formTraits.splice(0)
-  formActions.splice(0)
-  if (fImgInput.value) fImgInput.value.value = ''
+  hideAddForm()
 }
 
 const chooser = reactive({ open: false, query: '', candidates: [] as MonsterCandidate[] })
@@ -150,8 +166,8 @@ function importCandidate(c: MonsterCandidate) {
   chooser.open = false
 }
 
-function removeFicha(id: number) {
-  if (!confirm('Remover?')) return
+async function removeFicha(id: number) {
+  if (!(await appConfirm('Remover esta ficha?', { title: 'Remover', confirmLabel: 'Remover', danger: true }))) return
   const c = camp.value
   c.fichas = c.fichas.filter((f) => f.id !== id)
   c.creatures.forEach((cr) => {
@@ -287,54 +303,190 @@ function onDrop(e: DragEvent, tid: number) {
   list.splice(ti, 0, item)
   document.querySelectorAll('#fichasGrid .fCard').forEach((el) => el.classList.remove('dragging'))
 }
+
+// ----- Encontros -----
+type EncSlotDraft = {
+  fichaId: string
+  name: string
+  hpMax: string
+  ac: string
+  initBonus: string
+  qty: string
+}
+
+const showEncForm = ref(false)
+const encEditId = ref(0)
+const encForm = reactive({
+  name: '',
+  notes: '',
+  slots: [] as EncSlotDraft[]
+})
+
+const encounters = computed(() => camp.value.encounters || [])
+
+function emptyEncSlot(): EncSlotDraft {
+  return { fichaId: '', name: '', hpMax: '', ac: '', initBonus: '', qty: '1' }
+}
+
+function resetEncForm() {
+  encForm.name = ''
+  encForm.notes = ''
+  encForm.slots = []
+  encEditId.value = 0
+}
+
+function showEncAddForm() {
+  resetEncForm()
+  encForm.slots.push(emptyEncSlot())
+  showEncForm.value = true
+}
+
+function hideEncForm() {
+  showEncForm.value = false
+  resetEncForm()
+}
+
+function addEncSlot() {
+  encForm.slots.push(emptyEncSlot())
+}
+
+function removeEncSlot(i: number) {
+  encForm.slots.splice(i, 1)
+}
+
+function onEncSlotFicha(i: number) {
+  const sl = encForm.slots[i]
+  const f = camp.value.fichas.find((x) => String(x.id) === String(sl.fichaId))
+  if (!f) return
+  sl.name = f.name
+  sl.hpMax = f.hpMax != null ? String(f.hpMax) : ''
+  sl.ac = f.ac != null ? String(f.ac) : ''
+  sl.initBonus = f.initBonus != null ? String(f.initBonus) : ''
+}
+
+function draftToSlot(sl: EncSlotDraft): EncounterSlot | null {
+  const name = sl.name.trim()
+  if (!name) return null
+  const qty = Math.max(1, parseInt(sl.qty) || 1)
+  const hpMax = parseInt(sl.hpMax) || 1
+  const ac = sl.ac.trim() ? parseInt(sl.ac) : null
+  const ib = sl.initBonus.trim() ? parseInt(sl.initBonus) : null
+  return {
+    name,
+    fichaId: sl.fichaId || '',
+    hpMax,
+    ac: ac != null && !isNaN(ac) ? ac : null,
+    qty,
+    initBonus: ib != null && !isNaN(ib) ? ib : null
+  }
+}
+
+async function saveEncounter() {
+  const name = encForm.name.trim()
+  if (!name) {
+    await appAlert('Digite o nome do encontro.')
+    return
+  }
+  const slots = encForm.slots.map(draftToSlot).filter((s): s is EncounterSlot => s != null)
+  if (!slots.length) {
+    await appAlert('Adicione pelo menos uma criatura ao encontro.')
+    return
+  }
+  if (!camp.value.encounters) camp.value.encounters = []
+  if (encEditId.value) {
+    const enc = camp.value.encounters.find((e) => e.id === encEditId.value)
+    if (enc) {
+      enc.name = name
+      enc.notes = encForm.notes.trim() || undefined
+      enc.slots = slots
+    }
+  } else {
+    camp.value.encounters.push({
+      id: Date.now(),
+      name,
+      notes: encForm.notes.trim() || undefined,
+      slots
+    })
+  }
+  hideEncForm()
+}
+
+function openEncEdit(enc: EncounterTemplate) {
+  encEditId.value = enc.id
+  encForm.name = enc.name
+  encForm.notes = enc.notes || ''
+  encForm.slots = enc.slots.map((s) => ({
+    fichaId: s.fichaId != null ? String(s.fichaId) : '',
+    name: s.name,
+    hpMax: String(s.hpMax),
+    ac: s.ac != null ? String(s.ac) : '',
+    initBonus: s.initBonus != null ? String(s.initBonus) : '',
+    qty: String(s.qty)
+  }))
+  showEncForm.value = true
+}
+
+async function removeEncounter(id: number) {
+  if (!(await appConfirm('Remover este encontro?', { title: 'Remover', confirmLabel: 'Remover', danger: true }))) return
+  camp.value.encounters = (camp.value.encounters || []).filter((e) => e.id !== id)
+}
 </script>
 
 <template>
   <div class="section" :class="{ active }">
     <h2 class="sTitle">Fichas & Status</h2>
 
-    <div class="card">
-      <div style="display: flex; gap: 0.5rem; align-items: flex-end; flex-wrap: wrap">
-        <div class="fGrp"><label>Importar do SRD 5e (Open5e)</label><input v-model="importName" type="text" placeholder="Ex: Goblin, Adult Red Dragon..." @keyup.enter="importFromSRD" /></div>
-        <button class="btn btnRed" :disabled="importing" @click="importFromSRD">{{ importing ? 'Buscando...' : '⬇ Importar' }}</button>
+    <div v-if="showForm" style="margin-bottom: 1rem">
+      <div class="card" style="margin-bottom: 0.75rem">
+        <div style="display: flex; gap: 0.5rem; align-items: flex-end; flex-wrap: wrap">
+          <div class="fGrp"><label>Importar do SRD 5e (Open5e)</label><input v-model="importName" type="text" placeholder="Ex: Goblin, Adult Red Dragon..." @keyup.enter="importFromSRD" /></div>
+          <button class="btn btnRed" :disabled="importing" @click="importFromSRD">{{ importing ? 'Buscando...' : '⬇ Importar' }}</button>
+        </div>
+        <div v-if="importMsg" style="font-family: var(--fN); font-size: 0.75rem; color: var(--muted); margin-top: 0.35rem">{{ importMsg }}</div>
       </div>
-      <div v-if="importMsg" style="font-family: var(--fN); font-size: 0.75rem; color: var(--muted); margin-top: 0.35rem">{{ importMsg }}</div>
+
+      <div class="card">
+        <div class="fRow">
+          <div class="fGrp"><label>Nome</label><input v-model="form.name" type="text" placeholder="Ex: Capitão Blacktide" /></div>
+          <div class="fGrp" style="max-width: 85px"><label>HP Máx</label><input v-model="form.hpMax" type="number" /></div>
+          <div class="fGrp" style="max-width: 72px"><label>AC</label><input v-model="form.ac" type="number" /></div>
+          <div class="fGrp" style="max-width: 90px"><label>Init. Bonus</label><input v-model="form.initBonus" type="number" placeholder="+2" /></div>
+          <div class="fGrp"><label>Tipo</label><input v-model="form.type" type="text" placeholder="Ex: Humanoide" /></div>
+        </div>
+
+        <button class="btn btnOut sm" style="margin-bottom: 0.5rem" @click="showAdvanced = !showAdvanced">
+          {{ showAdvanced ? '▾' : '▸' }} Statblock (opcional)
+        </button>
+        <div v-if="showAdvanced">
+          <div class="fRow">
+            <div class="fGrp"><label>Tamanho</label><input v-model="form.size" type="text" placeholder="Medium" /></div>
+            <div class="fGrp"><label>Alinhamento</label><input v-model="form.alignment" type="text" placeholder="Chaotic Evil" /></div>
+            <div class="fGrp" style="max-width: 80px"><label>CR</label><input v-model="form.cr" type="text" placeholder="1/4" /></div>
+            <div class="fGrp"><label>Deslocamento</label><input v-model="form.speed" type="text" placeholder="30 ft." /></div>
+          </div>
+          <div class="fRow">
+            <div class="fGrp"><label>FOR</label><input v-model="form.str" type="number" /></div>
+            <div class="fGrp"><label>DES</label><input v-model="form.dex" type="number" /></div>
+            <div class="fGrp"><label>CON</label><input v-model="form.con" type="number" /></div>
+            <div class="fGrp"><label>INT</label><input v-model="form.int" type="number" /></div>
+            <div class="fGrp"><label>SAB</label><input v-model="form.wis" type="number" /></div>
+            <div class="fGrp"><label>CAR</label><input v-model="form.cha" type="number" /></div>
+          </div>
+          <div class="fGrp" style="margin-bottom: 0.6rem"><label>Traços / Habilidades</label><StatEntryEditor :list="formTraits" add-label="Adicionar traço" /></div>
+          <div class="fGrp" style="margin-bottom: 0.6rem"><label>Ações</label><StatEntryEditor :list="formActions" add-label="Adicionar ação" /></div>
+        </div>
+
+        <label class="ulabel" @click="fImgInput?.click()">⬡ Clique para carregar imagem</label>
+        <input ref="fImgInput" type="file" accept="image/*" />
+        <div style="display: flex; gap: 0.5rem; margin-top: 0.8rem; justify-content: flex-end">
+          <button class="btn btnOut" @click="hideAddForm">Cancelar</button>
+          <button class="btn btnRed" @click="addFicha">+ Salvar Ficha</button>
+        </div>
+      </div>
     </div>
 
-    <div class="card">
-      <div class="fRow">
-        <div class="fGrp"><label>Nome</label><input v-model="form.name" type="text" placeholder="Ex: Capitão Blacktide" /></div>
-        <div class="fGrp" style="max-width: 85px"><label>HP Máx</label><input v-model="form.hpMax" type="number" /></div>
-        <div class="fGrp" style="max-width: 72px"><label>AC</label><input v-model="form.ac" type="number" /></div>
-        <div class="fGrp" style="max-width: 90px"><label>Init. Bonus</label><input v-model="form.initBonus" type="number" placeholder="+2" /></div>
-        <div class="fGrp"><label>Tipo</label><input v-model="form.type" type="text" placeholder="Ex: Humanoide" /></div>
-      </div>
-
-      <button class="btn btnOut sm" style="margin-bottom: 0.5rem" @click="showAdvanced = !showAdvanced">
-        {{ showAdvanced ? '▾' : '▸' }} Statblock (opcional)
-      </button>
-      <div v-if="showAdvanced">
-        <div class="fRow">
-          <div class="fGrp"><label>Tamanho</label><input v-model="form.size" type="text" placeholder="Medium" /></div>
-          <div class="fGrp"><label>Alinhamento</label><input v-model="form.alignment" type="text" placeholder="Chaotic Evil" /></div>
-          <div class="fGrp" style="max-width: 80px"><label>CR</label><input v-model="form.cr" type="text" placeholder="1/4" /></div>
-          <div class="fGrp"><label>Deslocamento</label><input v-model="form.speed" type="text" placeholder="30 ft." /></div>
-        </div>
-        <div class="fRow">
-          <div class="fGrp"><label>FOR</label><input v-model="form.str" type="number" /></div>
-          <div class="fGrp"><label>DES</label><input v-model="form.dex" type="number" /></div>
-          <div class="fGrp"><label>CON</label><input v-model="form.con" type="number" /></div>
-          <div class="fGrp"><label>INT</label><input v-model="form.int" type="number" /></div>
-          <div class="fGrp"><label>SAB</label><input v-model="form.wis" type="number" /></div>
-          <div class="fGrp"><label>CAR</label><input v-model="form.cha" type="number" /></div>
-        </div>
-        <div class="fGrp" style="margin-bottom: 0.6rem"><label>Traços / Habilidades</label><StatEntryEditor :list="formTraits" add-label="Adicionar traço" /></div>
-        <div class="fGrp" style="margin-bottom: 0.6rem"><label>Ações</label><StatEntryEditor :list="formActions" add-label="Adicionar ação" /></div>
-      </div>
-
-      <label class="ulabel" @click="fImgInput?.click()">⬡ Clique para carregar imagem</label>
-      <input ref="fImgInput" type="file" accept="image/*" />
-      <div style="text-align: right; margin-top: 0.8rem"><button class="btn btnRed" @click="addFicha">+ Adicionar Ficha</button></div>
+    <div v-if="!showForm" style="margin-bottom: 0.8rem">
+      <button class="btn btnRed" @click="showAddForm">+ Adicionar Ficha</button>
     </div>
 
     <div style="display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.8rem; flex-wrap: wrap">
@@ -371,6 +523,58 @@ function onDrop(e: DragEvent, tid: number) {
         <button v-if="hasStatblock(f)" class="btn btnOut sm" style="width: 100%; margin-top: 0.3rem" @click="openDetail(f)">📖 Statblock</button>
         <button class="btn btnOut sm" style="width: 100%; margin-top: 0.3rem" @click="openEdit(f)">✏ Editar</button>
         <button class="btn btnDng sm" style="width: 100%; margin-top: 0.3rem" @click="removeFicha(f.id)">✕ Remover</button>
+      </div>
+    </div>
+
+    <hr style="border: none; border-top: 1px solid var(--border); margin: 1.5rem 0 1rem" />
+    <h3 class="sTitle" style="font-size: 1.1rem; margin-bottom: 0.75rem">⚔ Encontros</h3>
+
+    <div v-if="showEncForm" class="card" style="margin-bottom: 1rem">
+      <h4 style="font-family: var(--fH); color: var(--red); margin-bottom: 0.6rem">{{ encEditId ? 'Editar Encontro' : 'Novo Encontro' }}</h4>
+      <div class="fRow">
+        <div class="fGrp"><label>Nome</label><input v-model="encForm.name" type="text" placeholder="Ex: Emboscada na ponte" /></div>
+      </div>
+      <div class="fGrp" style="margin-bottom: 0.6rem">
+        <label>Notas (opcional)</label>
+        <textarea v-model="encForm.notes" style="min-height: 60px" placeholder="Táticas, gatilhos, tesouro..."></textarea>
+      </div>
+      <div style="font-family: var(--fN); font-size: 0.72rem; color: var(--muted); text-transform: uppercase; margin-bottom: 0.35rem">Criaturas</div>
+      <div v-for="(sl, i) in encForm.slots" :key="i" class="fRow" style="align-items: flex-end; margin-bottom: 0.35rem">
+        <div class="fGrp" style="min-width: 120px">
+          <label>Ficha</label>
+          <select v-model="sl.fichaId" @change="onEncSlotFicha(i)">
+            <option value="">— manual —</option>
+            <option v-for="f in camp.fichas" :key="f.id" :value="f.id">{{ f.name }}</option>
+          </select>
+        </div>
+        <div class="fGrp" style="min-width: 100px"><label>Nome</label><input v-model="sl.name" type="text" placeholder="Goblin" /></div>
+        <div class="fGrp" style="max-width: 55px"><label>Qtd</label><input v-model="sl.qty" type="number" min="1" /></div>
+        <div class="fGrp" style="max-width: 65px"><label>HP</label><input v-model="sl.hpMax" type="number" /></div>
+        <div class="fGrp" style="max-width: 55px"><label>AC</label><input v-model="sl.ac" type="number" /></div>
+        <div class="fGrp" style="max-width: 65px"><label>Init</label><input v-model="sl.initBonus" type="number" placeholder="+2" /></div>
+        <button class="btn btnDng sm" style="margin-bottom: 0.15rem" title="Remover" @click="removeEncSlot(i)">✕</button>
+      </div>
+      <button class="btn btnOut sm" style="margin-bottom: 0.6rem" @click="addEncSlot">+ Criatura</button>
+      <div style="display: flex; gap: 0.5rem; justify-content: flex-end">
+        <button class="btn btnOut" @click="hideEncForm">Cancelar</button>
+        <button class="btn btnRed" @click="saveEncounter">{{ encEditId ? 'Salvar' : '+ Criar Encontro' }}</button>
+      </div>
+    </div>
+
+    <div v-if="!showEncForm" style="margin-bottom: 0.8rem">
+      <button class="btn btnRed" @click="showEncAddForm">+ Criar Encontro</button>
+    </div>
+
+    <div v-if="!encounters.length" class="empty" style="margin-bottom: 1rem">Nenhum encontro salvo.</div>
+    <div v-for="enc in encounters" :key="enc.id" class="encCard">
+      <div style="flex: 1; min-width: 0">
+        <div style="font-family: var(--fH); font-weight: 700; color: var(--red)">{{ enc.name }}</div>
+        <div style="font-family: var(--fN); font-size: 0.72rem; color: var(--muted); margin-top: 0.15rem">{{ templateSummary(enc) }}</div>
+        <div v-if="enc.notes" style="font-family: var(--fB); font-size: 0.82rem; color: var(--muted); margin-top: 0.25rem; font-style: italic">{{ enc.notes }}</div>
+      </div>
+      <div style="display: flex; gap: 0.3rem; flex-shrink: 0">
+        <button class="btn btnOut sm" @click="openEncEdit(enc)">✏ Editar</button>
+        <button class="btn btnDng sm" @click="removeEncounter(enc.id)">✕</button>
       </div>
     </div>
   </div>

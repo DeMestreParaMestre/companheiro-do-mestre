@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { CONDS } from '../../constants'
 import { hpPercent, hpStatus, hpBarColor } from '../../utils/combat'
+import { tracksDeathSaves } from '../../utils/deathSaves'
 import type { Creature } from '../../types'
 
 const props = defineProps<{
@@ -13,6 +14,16 @@ const props = defineProps<{
 
 function isParty(name: string) {
   return props.partyNames.includes(name)
+}
+function partyStatus(c: Creature) {
+  if (c.dead) return 'Morto'
+  if (tracksDeathSaves(c, true)) {
+    const s = c.deathSaveSuccesses ?? 0
+    const f = c.deathSaveFailures ?? 0
+    if (c.stable) return `Estável · 0 / ${c.hpMax} HP (${s}✓ ${f}✕)`
+    return `Inconsciente · 0 / ${c.hpMax} HP (${s}✓ ${f}✕)`
+  }
+  return `${c.hp} / ${c.hpMax} HP`
 }
 function condLabel(c: Creature, k: string) {
   const cd = CONDS.find((x) => x.k === k)
@@ -39,7 +50,7 @@ function condLabel(c: Creature, k: string) {
             <div class="pvBar" :style="{ width: hpPercent(c.hp, c.hpMax) + '%', background: hpBarColor(c.hp, c.hpMax) }"></div>
           </div>
           <div class="pvStatus">
-            <span v-if="isParty(c.name)">{{ c.dead ? 'Fora de combate' : c.hp + ' / ' + c.hpMax + ' HP' }}<span v-if="c.tempHp"> (+{{ c.tempHp }})</span></span>
+            <span v-if="isParty(c.name)">{{ partyStatus(c) }}<span v-if="c.tempHp"> (+{{ c.tempHp }})</span></span>
             <span v-else>{{ hpStatus(c.hp, c.hpMax, c.dead) }}</span>
             <span v-for="k in c.conditions || []" :key="k" class="pvCond">{{ condLabel(c, k) }}</span>
           </div>
