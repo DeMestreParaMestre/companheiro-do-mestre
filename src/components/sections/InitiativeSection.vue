@@ -23,6 +23,7 @@ import { applyLongRestToParty } from '../../utils/longRest'
 import { groupReferences } from '../../utils/refGroups'
 import { PLAYER_CHANNEL, type PlayerMessage } from '../../utils/playerChannel'
 import { spawnFromTemplate, templateSummary } from '../../utils/encounters'
+import { isCustomCond, condMeta, condLabel, customCondKeys, addCustomCondition } from '../../utils/conditions'
 import BaseModal from '../ui/BaseModal.vue'
 import ImagePopup from '../ui/ImagePopup.vue'
 import StatblockModal from '../ui/StatblockModal.vue'
@@ -124,7 +125,7 @@ async function addCreature() {
       hp,
       hpMax: hp,
       ac,
-      fichaId: cFichaLink.value,
+      fichaId: f ? f.id : '',
       dead: false,
       conditions: [],
       initBonus
@@ -227,12 +228,8 @@ function fichaName(c: Creature) {
   const f = camp.value.fichas.find((f) => String(f.id) === String(c.fichaId))
   return f ? f.name : ''
 }
-function condMeta(k: string) {
-  return CONDS.find((x) => x.k === k)
-}
 function pillLabel(c: Creature, k: string) {
-  const cd = condMeta(k)
-  let base = cd?.custom ? (c.customConditionLabel && c.customConditionLabel[k]) || 'Outros' : cd ? cd.l : k
+  let base = condLabel(c, k)
   const dur = c.conditionDurations && c.conditionDurations[k]
   if (dur && dur > 0) base += ' (' + dur + 'rd)'
   return base
@@ -251,18 +248,13 @@ function tickDurations() {
       if (v <= 0) {
         c.conditions = (c.conditions || []).filter((x) => x !== k)
         delete c.conditionDurations![k]
-        log(`${c.name}: condição "${pillLabelRaw(c, k)}" expirou`)
+        log(`${c.name}: condição "${condLabel(c, k)}" expirou`)
       } else {
         c.conditionDurations![k] = v
       }
     })
   })
 }
-function pillLabelRaw(c: Creature, k: string) {
-  const cd = condMeta(k)
-  return cd?.custom ? (c.customConditionLabel && c.customConditionLabel[k]) || 'Outros' : cd ? cd.l : k
-}
-
 function nextTurn() {
   const c = camp.value
   if (!c.creatures.length) return
@@ -345,23 +337,17 @@ onBeforeUnmount(() => {
 
 function onCondChange(c: Creature, k: string, e: Event) {
   const checked = (e.target as HTMLInputElement).checked
-  if (k === 'Outros' && checked) {
-    customStatus.cid = c.id
-    customStatus.label = ''
-    customStatus.open = true
-    return
-  }
   if (!c.conditions) c.conditions = []
   if (checked) {
     if (!c.conditions.includes(k)) c.conditions.push(k)
   } else {
-    c.conditions = c.conditions.filter((x) => x !== k)
-    if (c.conditionDurations) delete c.conditionDurations[k]
+    removeCond(c, k)
   }
 }
 function removeCond(c: Creature, k: string) {
   c.conditions = (c.conditions || []).filter((x) => x !== k)
   if (c.conditionDurations) delete c.conditionDurations[k]
+  if (isCustomCond(k) && c.customConditionLabel) delete c.customConditionLabel[k]
 }
 function setDuration(c: Creature, k: string, e: Event) {
   const v = parseInt((e.target as HTMLInputElement).value)
@@ -387,20 +373,16 @@ function hideTip(e: MouseEvent) {
 }
 
 // ----- Custom status modal -----
+// Cada confirmação cria um novo efeito "Outros", então é possível ter vários.
 const customStatus = reactive({ open: false, cid: 0, label: '' })
+function openCustomStatus(c: Creature) {
+  customStatus.cid = c.id
+  customStatus.label = ''
+  customStatus.open = true
+}
 function confirmCustomStatus() {
-  const label = customStatus.label.trim()
-  if (!label) {
-    customStatus.open = false
-    return
-  }
   const c = camp.value.creatures.find((x) => x.id === customStatus.cid)
-  if (c) {
-    if (!c.conditions) c.conditions = []
-    if (!c.conditions.includes('Outros')) c.conditions.push('Outros')
-    if (!c.customConditionLabel) c.customConditionLabel = {}
-    c.customConditionLabel['Outros'] = label
-  }
+  if (c) addCustomCondition(c, customStatus.label)
   customStatus.open = false
 }
 
@@ -913,7 +895,7 @@ function onShortcut(e: KeyboardEvent) {
               </option>
             </optgroup>
             <optgroup v-if="camp.fichas.length" label="Fichas">
-              <option v-for="f in camp.fichas" :key="f.id" :value="f.id">{{ f.name }}</option>
+              <option v-for="f in camp.fichas" :key="f.id" :value="String(f.id)">{{ f.name }}</option>
             </optgroup>
           </select>
         </div>
@@ -1057,7 +1039,15 @@ function onShortcut(e: KeyboardEvent) {
             <button class="sdBtn" @click="toggleSD(row.c.id)">Status ▾</button>
             <div class="sdMenu" :class="{ open: openStatusId === row.c.id }">
               <div v-for="cd in CONDS" :key="cd.k">
-                <label class="sdOpt">
+                <!-- "Outros": um item por efeito já adicionado + ação para adicionar mais um -->
+                <template v-if="cd.custom">
+                  <label v-for="ck in customCondKeys(row.c)" :key="ck" class="sdOpt">
+                    <input type="checkbox" checked title="Remover" @change="removeCond(row.c, ck)" />
+                    <span>{{ condLabel(row.c, ck) }}</span>
+                  </label>
+                  <div class="sdOpt sdAddCustom" @click="openCustomStatus(row.c)">＋ {{ cd.l }}…</div>
+                </template>
+                <label v-else class="sdOpt">
                   <input
                     type="checkbox"
                     :checked="(row.c.conditions || []).includes(cd.k)"
@@ -1065,7 +1055,7 @@ function onShortcut(e: KeyboardEvent) {
                   />
                   <span>{{ cd.l }}</span>
                   <input
-                    v-if="(row.c.conditions || []).includes(cd.k) && !cd.custom"
+                    v-if="(row.c.conditions || []).includes(cd.k)"
                     type="number"
                     min="1"
                     placeholder="rd"

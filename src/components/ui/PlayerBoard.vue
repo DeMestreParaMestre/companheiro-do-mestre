@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CONDS } from '../../constants'
+import { condLabel } from '../../utils/conditions'
 import { hpPercent, hpStatus, hpBarColor } from '../../utils/combat'
 import { tracksDeathSaves } from '../../utils/deathSaves'
 import type { Creature } from '../../types'
@@ -24,10 +24,6 @@ function partyStatus(c: Creature) {
     return `Inconsciente · 0 / ${c.hpMax} HP (${s}✓ ${f}✕)`
   }
   return `${c.hp} / ${c.hpMax} HP`
-}
-function condLabel(c: Creature, k: string) {
-  const cd = CONDS.find((x) => x.k === k)
-  return cd?.custom ? (c.customConditionLabel && c.customConditionLabel[k]) || 'Outros' : cd ? cd.l : k
 }
 </script>
 
