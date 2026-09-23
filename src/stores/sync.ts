@@ -245,6 +245,12 @@ export const useSyncStore = defineStore('sync', () => {
       await saveFile()
       lastError.value = ''
     } catch (e) {
+      // Conta excluída (em outra aba/dispositivo) com o token ainda válido: a campanha não tem mais dono.
+      if ((e as { code?: string })?.code === '23503') {
+        toast.show('Esta conta foi excluída. Você foi desconectado.', 'info', 7000)
+        void auth.signOut()
+        return
+      }
       lastError.value = authErrorMessage(e)
       status.value = !navigator.onLine || /fetch|network/i.test(lastError.value + String(e)) ? 'offline' : 'error'
     } finally {

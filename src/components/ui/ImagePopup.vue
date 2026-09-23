@@ -72,6 +72,7 @@ watch(
           @click="toggleZoom"
         />
         <div v-else class="ipEmpty">Sem imagem</div>
+        <slot />
       </div>
     </div>
   </BaseModal>

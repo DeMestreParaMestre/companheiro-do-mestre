@@ -206,6 +206,11 @@ function close() {
         </template>
 
         <a v-if="(mode === 'forgot' || mode === 'magic') && !recovery" href="#" class="authBack" @click.prevent="mode = 'signin'">← Voltar para entrar</a>
+
+        <small v-if="!recovery && mode !== 'forgot'" class="authHelp authTerms">
+          Ao continuar, você concorda com os <a href="termos.html" target="_blank">Termos de Uso</a> e a
+          <a href="privacidade.html" target="_blank">Política de Privacidade</a>.
+        </small>
       </form>
     </div>
   </BaseModal>
@@ -333,6 +338,13 @@ function close() {
   font-family: var(--fN);
   font-size: 0.72rem;
   color: var(--muted);
+}
+.authTerms {
+  text-align: center;
+  line-height: 1.5;
+}
+.authTerms a {
+  color: var(--red);
 }
 
 .authError {
