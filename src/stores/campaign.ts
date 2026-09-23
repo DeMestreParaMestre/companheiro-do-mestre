@@ -4,6 +4,7 @@ import type { Campaign, PersistedData } from '../types'
 import { idbGet, idbSet } from '../composables/useIdbStorage'
 import { migratePartyLinks } from '../utils/partyLink'
 import { compressDataUrl } from '../utils/image'
+import { imageHolders } from '../utils/imageStore'
 
 const KEY = 'nc_data'
 
@@ -67,8 +68,7 @@ export const useCampaignStore = defineStore('campaign', () => {
 
   // Imagens salvas antes da compressão no upload: reduz uma vez, em segundo plano.
   async function shrinkStoredImages() {
-    const holders = campaigns.value.flatMap((c) => [...c.fichas, ...c.personagens, ...c.itens, ...(c.references || [])])
-    for (const h of holders) {
+    for (const h of campaigns.value.flatMap(imageHolders)) {
       if (h.img && h.img.length > 400_000) h.img = await compressDataUrl(h.img)
     }
   }

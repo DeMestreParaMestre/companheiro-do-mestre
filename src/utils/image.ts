@@ -2,7 +2,7 @@
 const MAX_SIDE = 1600
 const QUALITY = 0.85
 
-function readAsDataUrl(file: File): Promise<string> {
+export function readAsDataUrl(file: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const r = new FileReader()
     r.onload = (e) => resolve(e.target?.result as string)
