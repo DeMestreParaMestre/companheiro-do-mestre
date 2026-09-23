@@ -5,18 +5,18 @@ export const CONDS: Condition[] = [
   { k: 'Blinded', l: 'Blinded', d: "Can't see; fail sight checks; disadvantage on attacks; attacks against you have advantage." },
   { k: 'Charmed', l: 'Charmed', d: "Can't attack charmer; charmer has advantage on social checks against you." },
   { k: 'Deafened', l: 'Deafened', d: "Can't hear; auto-fail hearing checks." },
-  { k: 'Exhaustion', l: 'Exhaustion', d: '1–6 scale. Each level: d20 −2×level, speed −5ft×level. Long Rest −1. Level 6 = death.' },
+  { k: 'Exhaustion', l: 'Exhaustion', untimed: true, d: '1–6 scale. Each level: d20 −2×level, speed −5ft×level. Long Rest −1. Level 6 = death.' },
   { k: 'Frightened', l: 'Frightened', d: "Disadvantage on checks/attacks while source visible. Can't move closer." },
-  { k: 'Grappled', l: 'Grappled', d: 'Speed 0; no speed bonuses.' },
+  { k: 'Grappled', l: 'Grappled', untimed: true, d: 'Speed 0; no speed bonuses.' },
   { k: 'Incapacitated', l: 'Incapacitated', d: 'No actions, bonus actions, or reactions.' },
   { k: 'Invisible', l: 'Invisible', d: "Can't be seen without magic. Advantage on attacks; attackers disadvantaged." },
   { k: 'Paralyzed', l: 'Paralyzed', d: "Incapacitated, can't move/speak. Auto-fail Str/Dex. Adjacent hits crit." },
-  { k: 'Petrified', l: 'Petrified', d: 'Turned to stone. Incapacitated, speed 0, resist all damage, immune poison/disease.' },
+  { k: 'Petrified', l: 'Petrified', untimed: true, d: 'Turned to stone. Incapacitated, speed 0, resist all damage, immune poison/disease.' },
   { k: 'Poisoned', l: 'Poisoned', d: 'Disadvantage on attack rolls and ability checks.' },
-  { k: 'Prone', l: 'Prone', d: 'Can only crawl. Disadvantage on attacks. Attacks adv if attacker within 5ft.' },
+  { k: 'Prone', l: 'Prone', untimed: true, d: 'Can only crawl. Disadvantage on attacks. Attacks adv if attacker within 5ft.' },
   { k: 'Restrained', l: 'Restrained', d: "Speed 0. Attacks against you adv. Your attacks disadv. Dex saves disadv." },
   { k: 'Stunned', l: 'Stunned', d: "Incapacitated, can't move, speak falteringly. Auto-fail Str/Dex. Attacks adv." },
-  { k: 'Unconscious', l: 'Unconscious', d: "Incapacitated, unaware, drops items, falls prone. Auto-fail Str/Dex. Adjacent hits crit." },
+  { k: 'Unconscious', l: 'Unconscious', untimed: true, d: "Incapacitated, unaware, drops items, falls prone. Auto-fail Str/Dex. Adjacent hits crit." },
   { k: 'Outros', l: 'Outros', custom: true, d: '' }
 ]
 

@@ -1054,17 +1054,22 @@ function onShortcut(e: KeyboardEvent) {
                     @change="onCondChange(row.c, cd.k, $event)"
                   />
                   <span>{{ cd.l }}</span>
-                  <input
-                    v-if="(row.c.conditions || []).includes(cd.k)"
-                    type="number"
-                    min="1"
-                    placeholder="rd"
-                    :value="row.c.conditionDurations && row.c.conditionDurations[cd.k] ? row.c.conditionDurations[cd.k] : ''"
-                    style="width: 42px; margin-left: auto; padding: 0.1rem 0.3rem; font-size: 0.75rem"
-                    title="Duração em rodadas"
-                    @click.stop
-                    @change="setDuration(row.c, cd.k, $event)"
-                  />
+                  <span
+                    v-if="!cd.untimed && (row.c.conditions || []).includes(cd.k)"
+                    class="sdDur"
+                    title="Duração em rodadas. Vazio = até remover manualmente."
+                    @click.stop.prevent
+                  >
+                    ⏱
+                    <input
+                      type="number"
+                      min="1"
+                      placeholder="—"
+                      :value="row.c.conditionDurations?.[cd.k] || ''"
+                      @change="setDuration(row.c, cd.k, $event)"
+                    />
+                    rd
+                  </span>
                 </label>
               </div>
             </div>

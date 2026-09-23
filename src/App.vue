@@ -8,6 +8,7 @@ import { useSyncStore } from './stores/sync'
 import SyncConflictModal from './components/ui/SyncConflictModal.vue'
 import AppHeader from './components/AppHeader.vue'
 import AppNav from './components/AppNav.vue'
+import AppFooter from './components/AppFooter.vue'
 import DiceRoller from './components/ui/DiceRoller.vue'
 import InitiativeSection from './components/sections/InitiativeSection.vue'
 import ToastHost from './components/ui/ToastHost.vue'
@@ -60,21 +61,9 @@ onMounted(async () => {
     <DiarySection v-if="opened.has('sDiary')" :active="active === 'sDiary'" />
   </template>
   <div v-else class="empty">⟳ Sincronizando campanhas…</div>
-  <footer class="appFooter"><a href="privacidade.html">Política de Privacidade</a></footer>
+  <AppFooter />
   <DiceRoller />
   <ToastHost />
   <SyncConflictModal />
   <AppDialog />
 </template>
-
-<style scoped>
-.appFooter {
-  text-align: center;
-  padding: 1.5rem 0 2rem;
-  font-family: var(--fN);
-  font-size: 0.75rem;
-}
-.appFooter a {
-  color: var(--muted);
-}
-</style>

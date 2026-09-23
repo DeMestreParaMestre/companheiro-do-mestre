@@ -79,7 +79,12 @@ textarea{resize:vertical;min-height:80px}
 .sdMenu.open{display:block}
 .sdOpt{display:flex;align-items:center;gap:.5rem;padding:.27rem .5rem;border-radius:2px;cursor:pointer;font-family:var(--fB);font-size:.85rem;white-space:nowrap}
 .sdOpt:hover{background:var(--bg3)}
-.sdOpt input{accent-color:var(--red);width:14px;height:14px;flex-shrink:0}
+.sdOpt input[type=checkbox]{accent-color:var(--red);width:14px;height:14px;flex-shrink:0}
+.sdDur{margin-left:auto;display:inline-flex;align-items:center;gap:.2rem;padding:.08rem .35rem;border:1px solid var(--border);border-radius:10px;background:var(--bg);font-family:var(--fN);font-size:.72rem;color:var(--muted);cursor:default}
+.sdDur:focus-within{border-color:var(--red)}
+.sdDur input{width:2.2em;padding:0;border:none;background:transparent;text-align:center;font:inherit;font-weight:700;color:var(--ink);appearance:textfield;-moz-appearance:textfield}
+.sdDur input::-webkit-inner-spin-button,.sdDur input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.sdDur input:focus{outline:none}
 .sdAddCustom{color:var(--red);font-weight:600}
 .sPills{display:flex;flex-wrap:wrap;gap:.22rem;margin-top:.28rem}
 .sPill{font-family:var(--fN);font-size:.65rem;font-weight:600;padding:.13rem .38rem;border-radius:2px;cursor:pointer;border:1px solid;position:relative}

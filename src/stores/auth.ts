@@ -37,7 +37,7 @@ const ERRORS: [RegExp, string][] = [
   [/code verifier|auth code|pkce/i, 'Abra o link no mesmo navegador em que você pediu o e-mail.'],
   [/reauthenticat|nonce/i, 'Código de confirmação inválido ou expirado. Peça um novo código.'],
   [/new email.*same|email.*same as/i, 'Este já é o seu e-mail atual.'],
-  [/could not find the function|PGRST202/i, 'Recurso ainda não configurado no banco (rode o SQL 0002_sessions no Supabase).'],
+  [/could not find the function|PGRST202/i, 'Recurso ainda não configurado no banco (rode os SQLs de supabase/migrations no Supabase).'],
   [/failed to fetch|network/i, 'Sem conexão com o servidor. Verifique sua internet.']
 ]
 
@@ -159,6 +159,14 @@ export const useAuthStore = defineStore('auth', () => {
     await run(sb.rpc('revoke_my_session', { p_session_id: id }))
   }
 
+  /** Apaga a conta e todos os dados na nuvem. A sessão deixa de existir no servidor, então só limpa a local. */
+  async function deleteAccount() {
+    const sb = await client()
+    await run(sb.rpc('delete_my_account'))
+    await sb.auth.signOut({ scope: 'local' })
+    user.value = null
+  }
+
   async function signOut(everywhere = false) {
     const sb = await client()
     await sb.auth.signOut({ scope: everywhere ? 'global' : 'local' })
@@ -185,6 +193,7 @@ export const useAuthStore = defineStore('auth', () => {
     updateEmail,
     listSessions,
     revokeSession,
+    deleteAccount,
     signOut
   }
 })

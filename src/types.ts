@@ -196,4 +196,6 @@ export interface Condition {
   c?: boolean
   d: string
   custom?: boolean
+  /** Termina por evento (levantar, escapar, curar, descanso), não por rodadas: sem campo de duração. */
+  untimed?: boolean
 }

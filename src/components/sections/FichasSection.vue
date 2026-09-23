@@ -3,12 +3,12 @@ import { ref, reactive, computed } from 'vue'
 import { useCampaignStore } from '../../stores/campaign'
 import type { Ficha, StatEntry, EncounterSlot, EncounterTemplate } from '../../types'
 import { templateSummary } from '../../utils/encounters'
-import { fileToDataUrl } from '../../utils/image'
 import { searchMonsters, type MonsterCandidate } from '../../utils/open5e'
 import { toEntries, hasEntries } from '../../utils/statblock'
 import BaseModal from '../ui/BaseModal.vue'
 import StatEntryEditor from '../ui/StatEntryEditor.vue'
 import StatblockModal from '../ui/StatblockModal.vue'
+import ImageField from '../ui/ImageField.vue'
 import { appAlert, appConfirm } from '../../composables/useAppDialog'
 
 defineProps<{ active: boolean }>()
@@ -46,7 +46,7 @@ const formTraits = reactive<StatEntry[]>([])
 const formActions = reactive<StatEntry[]>([])
 const showAdvanced = ref(false)
 const showForm = ref(false)
-const fImgInput = ref<HTMLInputElement | null>(null)
+const formImg = ref<string | null>(null)
 
 // Import SRD
 const importName = ref('')
@@ -82,7 +82,7 @@ function resetForm() {
   Object.keys(form).forEach((k) => ((form as Record<string, string>)[k] = ''))
   formTraits.splice(0)
   formActions.splice(0)
-  if (fImgInput.value) fImgInput.value.value = ''
+  formImg.value = null
 }
 
 function showAddForm() {
@@ -104,9 +104,7 @@ async function addFicha() {
     return
   }
   const initBonus = parseInt(form.initBonus)
-  let img: string | null = null
-  const file = fImgInput.value?.files?.[0]
-  if (file) img = await fileToDataUrl(file)
+  const img = formImg.value
   camp.value.fichas.push({
     id: Date.now(),
     name,
@@ -207,9 +205,8 @@ const edit = reactive({
   cha: '',
   traits: [] as StatEntry[],
   actions: [] as StatEntry[],
-  preview: null as string | null
+  img: null as string | null
 })
-const eImgInput = ref<HTMLInputElement | null>(null)
 function s(v: number | null | undefined) {
   return v != null ? String(v) : ''
 }
@@ -232,9 +229,8 @@ function openEdit(f: Ficha) {
   edit.cha = s(f.cha)
   edit.traits = toEntries(f.traits)
   edit.actions = toEntries(f.actions)
-  edit.preview = f.img
+  edit.img = f.img
   edit.open = true
-  if (eImgInput.value) eImgInput.value.value = ''
 }
 async function saveEdit() {
   const f = camp.value.fichas.find((x) => x.id === edit.id)
@@ -257,8 +253,7 @@ async function saveEdit() {
   f.cha = num(edit.cha)
   f.traits = cleanEntries(edit.traits)
   f.actions = cleanEntries(edit.actions)
-  const file = eImgInput.value?.files?.[0]
-  if (file) f.img = await fileToDataUrl(file)
+  f.img = edit.img
   edit.open = false
 }
 
@@ -476,8 +471,7 @@ async function removeEncounter(id: number) {
           <div class="fGrp" style="margin-bottom: 0.6rem"><label>Ações</label><StatEntryEditor :list="formActions" add-label="Adicionar ação" /></div>
         </div>
 
-        <label class="ulabel" @click="fImgInput?.click()">⬡ Clique para carregar imagem</label>
-        <input ref="fImgInput" type="file" accept="image/*" />
+        <ImageField v-model="formImg" />
         <div style="display: flex; gap: 0.5rem; margin-top: 0.8rem; justify-content: flex-end">
           <button class="btn btnOut" @click="hideAddForm">Cancelar</button>
           <button class="btn btnRed" @click="addFicha">+ Salvar Ficha</button>
@@ -609,11 +603,7 @@ async function removeEncounter(id: number) {
       </div>
       <div class="fGrp" style="margin-bottom: 0.6rem"><label>Traços / Habilidades</label><StatEntryEditor :list="edit.traits" add-label="Adicionar traço" /></div>
       <div class="fGrp" style="margin-bottom: 0.6rem"><label>Ações</label><StatEntryEditor :list="edit.actions" add-label="Adicionar ação" /></div>
-      <label class="ulabel" @click="eImgInput?.click()">⬡ Trocar imagem</label>
-      <input ref="eImgInput" type="file" accept="image/*" />
-      <div v-if="edit.preview" style="margin-top: 0.6rem; text-align: center">
-        <img :src="edit.preview" style="max-height: 110px; border-radius: 3px; border: 1px solid var(--border)" />
-      </div>
+      <ImageField v-model="edit.img" />
       <div style="text-align: right; margin-top: 0.9rem"><button class="btn btnRed" @click="saveEdit">Salvar</button></div>
     </div>
   </BaseModal>

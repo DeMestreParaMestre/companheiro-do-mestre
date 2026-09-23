@@ -278,6 +278,11 @@ export const useSyncStore = defineStore('sync', () => {
   async function clearLocal() {
     store.campaigns = store.campaigns.filter((c) => !syncable(c))
     store.ensureDefaults()
+    await detach()
+  }
+
+  /** Esquece o vínculo com a conta: as campanhas daqui passam a ser só locais (ex.: após excluir a conta). */
+  async function detach() {
     store.tombstones.clear()
     file = { owner: null, meta: {} }
     await saveFile()
@@ -326,5 +331,5 @@ export const useSyncStore = defineStore('sync', () => {
     }
   })
 
-  return { status, pending, lastError, conflict, start, syncNow, clearLocal, countPending }
+  return { status, pending, lastError, conflict, start, syncNow, clearLocal, detach, countPending }
 })
