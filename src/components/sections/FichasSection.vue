@@ -479,11 +479,11 @@ async function removeEncounter(id: number) {
       </div>
     </div>
 
-    <div v-if="!showForm" style="margin-bottom: 0.8rem">
+    <div v-if="!showForm" data-tour="fichas-add" style="margin-bottom: 0.8rem">
       <button class="btn btnRed" @click="showAddForm">+ Adicionar Ficha</button>
     </div>
 
-    <div style="display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.8rem; flex-wrap: wrap">
+    <div data-tour="fichas-filter" style="display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.8rem; flex-wrap: wrap">
       <input v-model="search" type="text" placeholder="⬡ Pesquisar..." style="flex: 1; max-width: 240px" />
       <select v-model="typeFilter" style="font-family: var(--fH); font-size: 0.85rem; background: var(--light); border: 1px solid var(--border); color: var(--ink); padding: 0.35rem 0.6rem; border-radius: 3px; max-width: 160px">
         <option value="">Todos os Tipos</option>
@@ -521,7 +521,7 @@ async function removeEncounter(id: number) {
     </div>
 
     <hr style="border: none; border-top: 1px solid var(--border); margin: 1.5rem 0 1rem" />
-    <h3 class="sTitle" style="font-size: 1.1rem; margin-bottom: 0.75rem">⚔ Encontros</h3>
+    <h3 class="sTitle" data-tour="fichas-enc" style="font-size: 1.1rem; margin-bottom: 0.75rem">⚔ Encontros</h3>
 
     <div v-if="showEncForm" class="card" style="margin-bottom: 1rem">
       <h4 style="font-family: var(--fH); color: var(--red); margin-bottom: 0.6rem">{{ encEditId ? 'Editar Encontro' : 'Novo Encontro' }}</h4>

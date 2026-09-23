@@ -238,7 +238,7 @@ function onDrop(e: DragEvent, tid: number) {
   <div class="section" :class="{ active }">
     <h2 class="sTitle">Itens Mágicos</h2>
 
-    <div class="card">
+    <div class="card" data-tour="itens-import">
       <div style="display: flex; gap: 0.5rem; align-items: flex-end; flex-wrap: wrap">
         <div class="fGrp">
           <label>Importar do SRD 5e (Open5e)</label>
@@ -279,11 +279,11 @@ function onDrop(e: DragEvent, tid: number) {
       </div>
     </div>
 
-    <div v-if="!showForm" style="margin-bottom: 0.8rem">
+    <div v-if="!showForm" data-tour="itens-add" style="margin-bottom: 0.8rem">
       <button class="btn btnRed" @click="showAddForm">+ Adicionar Item</button>
     </div>
 
-    <div style="display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.8rem; flex-wrap: wrap">
+    <div data-tour="itens-filter" style="display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.8rem; flex-wrap: wrap">
       <input v-model="search" type="text" placeholder="⬡ Pesquisar..." style="flex: 1; max-width: 200px" />
       <select v-model="rarFilter" style="font-family: var(--fH); font-size: 0.85rem; background: var(--light); border: 1px solid var(--border); color: var(--ink); padding: 0.35rem 0.6rem; border-radius: 3px; max-width: 140px">
         <option value="">Todas Raridades</option>

@@ -85,7 +85,7 @@ watch(
   <div class="section" :class="{ active }">
     <h2 class="sTitle">Magias (SRD)</h2>
 
-    <div class="card">
+    <div class="card" data-tour="spells-search">
       <div style="display: flex; gap: 0.5rem; align-items: flex-end; flex-wrap: wrap">
         <div class="fGrp" style="max-width: 150px">
           <label>Sistema</label>
@@ -115,7 +115,7 @@ watch(
 
     <div v-if="error" class="empty" style="color: var(--red)">{{ error }}</div>
     <div v-else-if="loading && !results.length" class="empty">Carregando...</div>
-    <div v-else>
+    <div v-else data-tour="spells-results">
       <div v-if="!results.length" class="empty">Nenhuma magia encontrada.</div>
       <div v-for="sp in results" :key="sp.key" class="dEntry">
         <div class="dHead" @click="toggle(sp.key)">

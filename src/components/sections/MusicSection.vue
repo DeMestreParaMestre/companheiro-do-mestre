@@ -249,7 +249,7 @@ onMounted(() => {
     <h2 class="sTitle">Músicas &amp; Trilha Sonora</h2>
 
     <!-- Reprodutor embutido -->
-    <div class="card musicPlayerCard">
+    <div class="card musicPlayerCard" data-tour="music-player">
       <div class="ytWrap" v-show="player.isActive">
         <div id="musicYtHost"></div>
       </div>
@@ -313,12 +313,12 @@ onMounted(() => {
       </div>
     </div>
 
-    <div v-if="!showForm" style="margin-bottom: 0.8rem">
+    <div v-if="!showForm" data-tour="music-add" style="margin-bottom: 0.8rem">
       <button class="btn btnRed" @click="showAddForm">+ Adicionar Música / Playlist</button>
     </div>
 
     <!-- Filtro de categoria -->
-    <div style="display: flex; gap: 0.5rem; align-items: center; margin: 1rem 0 0.4rem; flex-wrap: wrap">
+    <div data-tour="music-cats" style="display: flex; gap: 0.5rem; align-items: center; margin: 1rem 0 0.4rem; flex-wrap: wrap">
       <label style="font-family: var(--fN); font-size: 0.78rem; color: var(--muted)">Filtrar categoria:</label>
       <select v-model="catFilter" class="plSelect" style="max-width: 220px">
         <option value="">Todas as categorias</option>

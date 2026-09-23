@@ -13,6 +13,8 @@ import DiceRoller from './components/ui/DiceRoller.vue'
 import InitiativeSection from './components/sections/InitiativeSection.vue'
 import ToastHost from './components/ui/ToastHost.vue'
 import AppDialog from './components/ui/AppDialog.vue'
+import WelcomeModal from './components/ui/WelcomeModal.vue'
+import TourGuide from './components/ui/TourGuide.vue'
 
 // Seções fora da aba inicial: baixadas e montadas só na primeira abertura, depois ficam vivas.
 const FichasSection = defineAsyncComponent(() => import('./components/sections/FichasSection.vue'))
@@ -66,4 +68,6 @@ onMounted(async () => {
   <ToastHost />
   <SyncConflictModal />
   <AppDialog />
+  <WelcomeModal v-if="ready" />
+  <TourGuide />
 </template>

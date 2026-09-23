@@ -358,7 +358,7 @@ function openImage(r: Reference) {
   <div class="section" :class="{ active }">
     <h2 class="sTitle">Referências Rápidas</h2>
 
-    <div v-if="showForm" class="card" style="margin-bottom: 1rem">
+    <div v-if="showForm" class="card" data-tour="refs-add" style="margin-bottom: 1rem">
       <div class="fRow fRowVal">
         <div class="fGrp" data-ref-field="form-name" :class="{ hasError: !!formErrors.name }">
           <label>Nome <span class="req" title="Obrigatório">*</span></label>
@@ -459,11 +459,11 @@ function openImage(r: Reference) {
       </div>
     </div>
 
-    <div v-if="!showForm && hasReferences" style="margin-bottom: 0.8rem">
+    <div v-if="!showForm && hasReferences" data-tour="refs-add" style="margin-bottom: 0.8rem">
       <button class="btn btnRed" type="button" @click="openForm">+ Nova referência</button>
     </div>
 
-    <div style="display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.8rem; flex-wrap: wrap">
+    <div data-tour="refs-filter" style="display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.8rem; flex-wrap: wrap">
       <input v-model="search" type="text" placeholder="⬡ Pesquisar por nome ou tipo..." style="flex: 1; max-width: 260px" />
       <select v-model="typeFilter" style="font-family: var(--fH); font-size: 0.85rem; background: var(--light); border: 1px solid var(--border); color: var(--ink); padding: 0.35rem 0.6rem; border-radius: 3px; max-width: 160px">
         <option value="">Todos os Tipos</option>
@@ -471,7 +471,7 @@ function openImage(r: Reference) {
       </select>
     </div>
 
-    <div>
+    <div data-tour="refs-list">
       <div v-if="!filtered.length" class="empty">Nenhuma referência.</div>
       <div v-for="(grp, gi) in grouped" :key="grp.parent" class="refFolder">
         <div class="refFolderHead" @click="toggleFolder(grp.parent)">

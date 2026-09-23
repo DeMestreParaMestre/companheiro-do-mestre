@@ -198,7 +198,7 @@ function onDrop(e: DragEvent, tid: number) {
 <template>
   <div class="section" :class="{ active }">
     <h2 class="sTitle">Diário de Campanha</h2>
-    <div class="sBars">
+    <div class="sBars" data-tour="diary-search">
       <input v-model="search" type="text" placeholder="⬡ Pesquisar registros..." />
       <span class="sCount">{{ searchCount }}</span>
       <button class="btn btnOut sm" @click="search = ''">✕</button>
@@ -222,7 +222,7 @@ function onDrop(e: DragEvent, tid: number) {
       </div>
     </div>
 
-    <div v-if="!showForm" style="margin-bottom: 0.8rem">
+    <div v-if="!showForm" data-tour="diary-add" style="margin-bottom: 0.8rem">
       <button class="btn btnRed" @click="showAddForm">+ Adicionar Entrada</button>
     </div>
 
@@ -239,7 +239,7 @@ function onDrop(e: DragEvent, tid: number) {
       <button v-if="tagFilter" class="btn btnOut sm" @click="tagFilter = ''">limpar</button>
     </div>
 
-    <div style="display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.8rem; flex-wrap: wrap">
+    <div data-tour="diary-tools" style="display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.8rem; flex-wrap: wrap">
       <span style="font-family: var(--fN); font-size: 0.78rem; color: var(--muted)">Ordenar:</span>
       <select
         v-model="sortMode"
@@ -253,7 +253,7 @@ function onDrop(e: DragEvent, tid: number) {
       <button class="btn sm btnRed" @click="exportWord">📄 Exportar para Word</button>
     </div>
 
-    <div :class="{ dTimeline: timeline }">
+    <div data-tour="diary-list" :class="{ dTimeline: timeline }">
       <div v-if="!entries.length" class="empty">{{ term || tagFilter ? 'Sem resultados.' : 'O diário está em branco.' }}</div>
       <div
         v-for="e in entries"
