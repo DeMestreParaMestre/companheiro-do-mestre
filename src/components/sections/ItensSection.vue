@@ -3,9 +3,10 @@ import { ref, reactive, computed } from 'vue'
 import { useCampaignStore } from '../../stores/campaign'
 import type { Item } from '../../types'
 import { RAR_ORDER, RAR_COLORS, RAR_BG } from '../../constants'
-import { fileToDataUrl } from '../../utils/image'
 import { searchMagicItems, type MagicItemCandidate } from '../../utils/magicitems'
 import BaseModal from '../ui/BaseModal.vue'
+import ImageField from '../ui/ImageField.vue'
+import ImagePopup from '../ui/ImagePopup.vue'
 import { appAlert, appConfirm } from '../../composables/useAppDialog'
 
 defineProps<{ active: boolean }>()
@@ -31,7 +32,7 @@ const chooser = reactive({
 
 // Formulário
 const form = reactive({ nome: '', tipo: '', raridade: '', attune: 'no', desc: '' })
-const imgInput = ref<HTMLInputElement | null>(null)
+const formImg = ref<string | null>(null)
 
 // Filtros
 const search = ref('')
@@ -133,7 +134,7 @@ function resetForm() {
   form.raridade = ''
   form.attune = 'no'
   form.desc = ''
-  if (imgInput.value) imgInput.value.value = ''
+  formImg.value = null
 }
 
 function showAddForm() {
@@ -151,9 +152,6 @@ async function addItem() {
     await appAlert('Digite o nome!')
     return
   }
-  let img: string | null = null
-  const file = imgInput.value?.files?.[0]
-  if (file) img = await fileToDataUrl(file)
   camp.value.itens.push({
     id: Date.now(),
     name: nome,
@@ -161,7 +159,7 @@ async function addItem() {
     raridade: form.raridade || null,
     attune: form.attune as 'yes' | 'no',
     desc: form.desc.trim() || null,
-    img
+    img: formImg.value
   })
   hideAddForm()
 }
@@ -179,8 +177,7 @@ function openPopup(it: Item) {
 }
 
 // Editar
-const edit = reactive({ open: false, id: 0, nome: '', tipo: '', raridade: '', attune: 'no', desc: '', preview: null as string | null })
-const eImgInput = ref<HTMLInputElement | null>(null)
+const edit = reactive({ open: false, id: 0, nome: '', tipo: '', raridade: '', attune: 'no', desc: '', img: null as string | null })
 function openEdit(it: Item) {
   edit.id = it.id
   edit.nome = it.name
@@ -188,11 +185,10 @@ function openEdit(it: Item) {
   edit.raridade = it.raridade || ''
   edit.attune = it.attune || 'no'
   edit.desc = it.desc || ''
-  edit.preview = it.img
-  if (eImgInput.value) eImgInput.value.value = ''
+  edit.img = it.img
   edit.open = true
 }
-async function saveEdit() {
+function saveEdit() {
   const it = itens.value.find((x) => x.id === edit.id)
   if (!it) return
   const n = edit.nome.trim()
@@ -201,8 +197,7 @@ async function saveEdit() {
   it.raridade = edit.raridade || null
   it.attune = edit.attune as 'yes' | 'no'
   it.desc = edit.desc.trim() || null
-  const file = eImgInput.value?.files?.[0]
-  if (file) it.img = await fileToDataUrl(file)
+  it.img = edit.img
   edit.open = false
 }
 
@@ -269,8 +264,7 @@ function onDrop(e: DragEvent, tid: number) {
             </select>
           </div>
         </div>
-        <label class="ulabel" @click="imgInput?.click()">⬡ Clique para carregar imagem</label>
-        <input ref="imgInput" type="file" accept="image/*" />
+        <ImageField v-model="formImg" />
         <div class="fGrp" style="margin-top: 0.8rem"><label>Descrição</label><textarea v-model="form.desc" style="min-height: 90px" placeholder="Descreva o item..."></textarea></div>
         <div style="display: flex; gap: 0.5rem; margin-top: 0.8rem; justify-content: flex-end">
           <button class="btn btnOut" @click="hideAddForm">Cancelar</button>
@@ -367,11 +361,7 @@ function onDrop(e: DragEvent, tid: number) {
           </select>
         </div>
       </div>
-      <label class="ulabel" @click="eImgInput?.click()">⬡ Trocar imagem</label>
-      <input ref="eImgInput" type="file" accept="image/*" />
-      <div v-if="edit.preview" style="margin-top: 0.6rem; text-align: center">
-        <img :src="edit.preview" style="max-height: 110px; border-radius: 3px; border: 1px solid var(--border)" />
-      </div>
+      <ImageField v-model="edit.img" />
       <div class="fGrp" style="margin-top: 0.7rem"><label>Descrição</label><textarea v-model="edit.desc" style="min-height: 90px"></textarea></div>
       <div style="text-align: right; margin-top: 0.9rem"><button class="btn btnRed" @click="saveEdit">Salvar</button></div>
     </div>
@@ -459,24 +449,7 @@ function onDrop(e: DragEvent, tid: number) {
   </BaseModal>
 
   <!-- Popup item -->
-  <BaseModal :open="popup.open" @close="popup.open = false">
-    <div style="position: relative; display: flex; flex-direction: column; align-items: center; gap: 0.7rem; max-width: 92vw">
-      <button
-        style="position: absolute; top: -2rem; right: 0; background: transparent; border: none; color: #ccc; font-size: 1.3rem; cursor: pointer"
-        @click="popup.open = false"
-      >
-        ✕
-      </button>
-      <p style="font-family: var(--fH); font-weight: 700; font-size: 1.1rem; color: #fff; text-shadow: 0 1px 4px rgba(0, 0, 0, 0.7)">{{ popup.item?.name }}</p>
-      <img
-        v-if="popup.item?.img"
-        :src="popup.item.img"
-        alt=""
-        style="max-width: 90vw; max-height: 75vh; object-fit: contain; border-radius: 4px; border: 2px solid var(--border2); box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5)"
-      />
-      <div v-else style="background: var(--bg2); border: 2px solid var(--border); border-radius: 4px; padding: 1.5rem 2.5rem; color: var(--muted); font-style: italic">
-        Sem imagem
-      </div>
+  <ImagePopup :open="popup.open" :name="popup.item?.name || ''" :img="popup.item?.img || null" @close="popup.open = false">
       <div
         style="max-width: 600px; width: 90vw; background: rgba(10, 5, 2, 0.78); border: 1px solid var(--border); border-radius: 4px; padding: 0.9rem 1.1rem; font-family: var(--fB); font-size: 0.95rem; color: #f0e8d8; line-height: 1.75; max-height: 30vh; overflow-y: auto"
       >
@@ -501,6 +474,5 @@ function onDrop(e: DragEvent, tid: number) {
         </div>
         <div v-else style="font-family: var(--fB); font-size: 0.9rem; color: rgba(240, 232, 216, 0.5); font-style: italic">Sem descrição.</div>
       </div>
-    </div>
-  </BaseModal>
+  </ImagePopup>
 </template>

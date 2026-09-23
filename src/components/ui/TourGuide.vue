@@ -79,7 +79,7 @@ const STEPS: Step[] = [
   {
     group: 'Iniciativa', sel: '.section.active .cRow .sdWrap', optional: true,
     title: 'Condições',
-    text: 'Em Status ▾, marque condições como Blinded ou Poisoned. Nas que têm tempo, o ⏱ define quantas rodadas duram; vazio vale até você remover. Passe o mouse na etiqueta para ler a regra e clique nela para remover.'
+    text: 'Em Status ▾, marque condições como Cego ou Envenenado. Nas que têm tempo, o ⏱ define quantas rodadas duram; vazio vale até você remover. Passe o mouse na etiqueta para ler a regra e clique nela para remover.'
   },
 
   // Fichas

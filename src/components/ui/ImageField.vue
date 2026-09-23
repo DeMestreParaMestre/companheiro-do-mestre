@@ -35,7 +35,7 @@ async function onPick() {
       <img :src="model" alt="Imagem atual" :class="{ top }" />
       <div class="imgFieldInfo">
         <strong>✔ Imagem atual</strong>
-        <small>Cada ficha tem uma imagem. Trocar substitui esta.</small>
+        <small>Só uma imagem por vez. Trocar substitui esta.</small>
         <div class="imgFieldActions">
           <button type="button" class="btn btnOut sm" @click="input?.click()">⇄ Trocar imagem</button>
           <button type="button" class="btn btnOut sm" @click="model = null">✕ Remover</button>

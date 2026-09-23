@@ -15,7 +15,7 @@ describe('conditions', () => {
     expect(isCustomCond('Outros:123')).toBe(true)
     expect(isCustomCond('Prone')).toBe(false)
     expect(condMeta('Outros:123')?.custom).toBe(true)
-    expect(condMeta('Prone')?.l).toBe('Prone')
+    expect(condMeta('Prone')?.l).toBe('Caído')
   })
 
   it('permite adicionar vários "Outros", cada um com seu nome', () => {
@@ -45,6 +45,6 @@ describe('conditions', () => {
   })
 
   it('usa o rótulo padrão das condições normais', () => {
-    expect(condLabel({}, 'Blinded')).toBe('Blinded')
+    expect(condLabel({}, 'Blinded')).toBe('Cego')
   })
 })

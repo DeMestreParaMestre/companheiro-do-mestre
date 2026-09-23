@@ -1,22 +1,23 @@
 import type { Condition } from './types'
 
 export const CONDS: Condition[] = [
-  { k: 'Concentrating', l: 'Concentrating', c: true, d: 'Requires mental focus. Ends if you cast another concentration spell, take damage, or become incapacitated.' },
-  { k: 'Blinded', l: 'Blinded', d: "Can't see; fail sight checks; disadvantage on attacks; attacks against you have advantage." },
-  { k: 'Charmed', l: 'Charmed', d: "Can't attack charmer; charmer has advantage on social checks against you." },
-  { k: 'Deafened', l: 'Deafened', d: "Can't hear; auto-fail hearing checks." },
-  { k: 'Exhaustion', l: 'Exhaustion', untimed: true, d: '1–6 scale. Each level: d20 −2×level, speed −5ft×level. Long Rest −1. Level 6 = death.' },
-  { k: 'Frightened', l: 'Frightened', d: "Disadvantage on checks/attacks while source visible. Can't move closer." },
-  { k: 'Grappled', l: 'Grappled', untimed: true, d: 'Speed 0; no speed bonuses.' },
-  { k: 'Incapacitated', l: 'Incapacitated', d: 'No actions, bonus actions, or reactions.' },
-  { k: 'Invisible', l: 'Invisible', d: "Can't be seen without magic. Advantage on attacks; attackers disadvantaged." },
-  { k: 'Paralyzed', l: 'Paralyzed', d: "Incapacitated, can't move/speak. Auto-fail Str/Dex. Adjacent hits crit." },
-  { k: 'Petrified', l: 'Petrified', untimed: true, d: 'Turned to stone. Incapacitated, speed 0, resist all damage, immune poison/disease.' },
-  { k: 'Poisoned', l: 'Poisoned', d: 'Disadvantage on attack rolls and ability checks.' },
-  { k: 'Prone', l: 'Prone', untimed: true, d: 'Can only crawl. Disadvantage on attacks. Attacks adv if attacker within 5ft.' },
-  { k: 'Restrained', l: 'Restrained', d: "Speed 0. Attacks against you adv. Your attacks disadv. Dex saves disadv." },
-  { k: 'Stunned', l: 'Stunned', d: "Incapacitated, can't move, speak falteringly. Auto-fail Str/Dex. Attacks adv." },
-  { k: 'Unconscious', l: 'Unconscious', untimed: true, d: "Incapacitated, unaware, drops items, falls prone. Auto-fail Str/Dex. Adjacent hits crit." },
+  // `k` é a chave salva nas campanhas (em inglês, como no SRD) e não pode mudar; `l` é o nome exibido.
+  { k: 'Concentrating', l: 'Concentrando', c: true, d: '(Concentrating) Mantendo uma magia de concentração. Termina ao conjurar outra magia de concentração, ficar incapacitado ou falhar no teste de Constituição ao sofrer dano (CD 10 ou metade do dano).' },
+  { k: 'Grappled', l: 'Agarrado', untimed: true, d: '(Grappled) Deslocamento 0, sem bônus de deslocamento.' },
+  { k: 'Frightened', l: 'Amedrontado', d: '(Frightened) Desvantagem em testes e ataques enquanto vê a fonte do medo. Não pode se aproximar dela.' },
+  { k: 'Stunned', l: 'Atordoado', d: '(Stunned) Incapacitado, não se move e fala com dificuldade. Falha automática em resistências de Força e Destreza. Ataques contra ele têm vantagem.' },
+  { k: 'Prone', l: 'Caído', untimed: true, d: '(Prone) Só pode rastejar. Desvantagem nos ataques. Ataques a até 1,5 m têm vantagem contra ele; de mais longe, desvantagem.' },
+  { k: 'Blinded', l: 'Cego', d: '(Blinded) Não enxerga: falha em testes que dependem de visão. Desvantagem nos ataques; ataques contra ele têm vantagem.' },
+  { k: 'Charmed', l: 'Enfeitiçado', d: '(Charmed) Não pode atacar quem o enfeitiçou. O enfeitiçador tem vantagem em testes sociais contra ele.' },
+  { k: 'Poisoned', l: 'Envenenado', d: '(Poisoned) Desvantagem em jogadas de ataque e testes de atributo.' },
+  { k: 'Exhaustion', l: 'Exaustão', untimed: true, d: '(Exhaustion) Níveis 1 a 6. Cada nível: −2 por nível nos testes de d20 e −1,5 m de deslocamento por nível. Descanso longo remove 1 nível. Nível 6 = morte.' },
+  { k: 'Restrained', l: 'Impedido', d: '(Restrained) Deslocamento 0. Ataques contra ele têm vantagem; os dele, desvantagem. Desvantagem em resistências de Destreza.' },
+  { k: 'Incapacitated', l: 'Incapacitado', d: '(Incapacitated) Não pode realizar ações, ações bônus nem reações.' },
+  { k: 'Unconscious', l: 'Inconsciente', untimed: true, d: '(Unconscious) Incapacitado e alheio ao redor, larga o que segura e cai. Falha automática em resistências de Força e Destreza. Acertos a até 1,5 m são críticos.' },
+  { k: 'Invisible', l: 'Invisível', d: '(Invisible) Não pode ser visto sem magia. Vantagem nos ataques; ataques contra ele têm desvantagem.' },
+  { k: 'Paralyzed', l: 'Paralisado', d: '(Paralyzed) Incapacitado, não se move nem fala. Falha automática em resistências de Força e Destreza. Acertos a até 1,5 m são críticos.' },
+  { k: 'Petrified', l: 'Petrificado', untimed: true, d: '(Petrified) Transformado em pedra. Incapacitado, deslocamento 0, resistência a todo dano, imune a veneno e doença.' },
+  { k: 'Deafened', l: 'Surdo', d: '(Deafened) Não ouve: falha em testes que dependem de audição.' },
   { k: 'Outros', l: 'Outros', custom: true, d: '' }
 ]
 

@@ -266,7 +266,7 @@ export function createDevSeedCampaign(): Campaign {
       { id: 9001, round: 1, text: '— Rodada 1 —' },
       { id: 9002, round: 1, text: 'Goblin 1 sofreu 3 de dano' },
       { id: 9003, round: 2, text: '— Rodada 2 —' },
-      { id: 9004, round: 2, text: 'Aldric: condição "Concentrating" ativa' }
+      { id: 9004, round: 2, text: 'Aldric: condição "Concentrando" ativa' }
     ],
     references: [
       {

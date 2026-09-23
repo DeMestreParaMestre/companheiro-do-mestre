@@ -6,6 +6,8 @@ const year = new Date().getFullYear()
 <template>
   <footer class="appFooter">
     <nav class="footLinks">
+      <a href="termos.html">Termos de Uso</a>
+      <span aria-hidden="true">·</span>
       <a href="privacidade.html">Política de Privacidade</a>
       <span aria-hidden="true">·</span>
       <a :href="'mailto:' + CONTACT">Contato</a>
