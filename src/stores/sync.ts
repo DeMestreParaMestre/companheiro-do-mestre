@@ -8,6 +8,7 @@ import { idbGet, idbSet } from '../composables/useIdbStorage'
 import { appConfirm } from '../composables/useAppDialog'
 import { useToast } from '../composables/useToast'
 import { decide, hashString, canonicalJson, isEmptyCampaign, type SyncedMeta } from '../utils/syncPlan'
+import { toRemote, uploadMissing, fromRemote } from '../utils/imageStore'
 
 const META_KEY = 'nc_sync'
 // Campanha de testes do modo dev (src/dev/seedCampaign.ts): nunca vai para a nuvem.
@@ -18,6 +19,10 @@ const PUSH_DELAY = 3000
 interface SyncFile {
   owner: string | null
   meta: Record<string, SyncedMeta>
+  /** Hashes das imagens já enviadas ao Storage. */
+  blobs?: string[]
+  /** 1 = campanhas já reenviadas com as imagens fora do JSON. */
+  imgRefs?: 1
 }
 interface RemoteRow {
   id: string
@@ -52,6 +57,7 @@ export const useSyncStore = defineStore('sync', () => {
   })
 
   let file: SyncFile = { owner: null, meta: {} }
+  let uploaded = new Set<string>()
   // Só sincroniza depois do start() (dono do navegador conferido); antes disso poderia subir campanhas de outra conta.
   let started = false
   let running = false
@@ -62,6 +68,7 @@ export const useSyncStore = defineStore('sync', () => {
   const hashOf = (c: Campaign) => hashString(JSON.stringify(c))
 
   async function saveFile() {
+    file.blobs = [...uploaded]
     await idbSet(META_KEY, JSON.parse(JSON.stringify(file)))
   }
 
@@ -90,10 +97,12 @@ export const useSyncStore = defineStore('sync', () => {
 
   async function upload(sb: SupabaseClient, c: Campaign, expected: number): Promise<boolean> {
     const json = JSON.stringify(c)
+    const remote = await toRemote(c)
+    await uploadMissing(sb, auth.user!.id, remote.blobs, uploaded)
     const { data, error } = await sb.rpc('save_campaign', {
       p_id: c.id,
       p_name: c.name,
-      p_data: JSON.parse(json),
+      p_data: remote.data,
       p_expected_version: expected
     })
     if (error) throw error
@@ -212,6 +221,10 @@ export const useSyncStore = defineStore('sync', () => {
         const full = await sb.from('campaigns').select('id,name,version,updated_at,deleted_at,data').in('id', all)
         if (full.error) throw full.error
         const byId = new Map((full.data as RemoteRow[]).map((r) => [r.id, r]))
+        // Antes de aplicar ou comparar: com as imagens de volta, conteúdo igual compara igual.
+        for (const row of byId.values()) {
+          if (row.data) await fromRemote(sb, auth.user.id, row.data, store.campaigns)
+        }
         for (const id of fetchIds) {
           const row = byId.get(id)
           if (row) applyRemote(row)
@@ -270,6 +283,12 @@ export const useSyncStore = defineStore('sync', () => {
       store.exportData()
       toast.show('Backup das suas campanhas baixado por segurança antes do primeiro envio à nuvem.', 'info', 7000)
     }
+    uploaded = new Set(file.blobs || [])
+    // Campanhas enviadas antes das imagens irem para o Storage: força um reenvio de cada uma.
+    if (!file.imgRefs) {
+      Object.values(file.meta).forEach((m) => (m.hash = ''))
+      file.imgRefs = 1
+    }
     started = true
     await syncNow(true)
   }
@@ -285,6 +304,7 @@ export const useSyncStore = defineStore('sync', () => {
   async function detach() {
     store.tombstones.clear()
     file = { owner: null, meta: {} }
+    uploaded = new Set()
     await saveFile()
   }
 

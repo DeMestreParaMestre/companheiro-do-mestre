@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { SupabaseClient, User } from '@supabase/supabase-js'
+import { removeAllImages } from '../utils/imageStore'
 
 const URL = import.meta.env.VITE_SUPABASE_URL
 const KEY = import.meta.env.VITE_SUPABASE_ANON_KEY
@@ -37,6 +38,8 @@ const ERRORS: [RegExp, string][] = [
   [/code verifier|auth code|pkce/i, 'Abra o link no mesmo navegador em que você pediu o e-mail.'],
   [/reauthenticat|nonce/i, 'Código de confirmação inválido ou expirado. Peça um novo código.'],
   [/new email.*same|email.*same as/i, 'Este já é o seu e-mail atual.'],
+  [/bucket not found/i, 'Armazenamento de imagens ainda não configurado (rode o SQL 0004_images_storage no Supabase).'],
+  [/payload too large|exceeded the maximum allowed size/i, 'Uma das imagens passa de 5 MB e não pôde ser enviada à nuvem.'],
   [/could not find the function|PGRST202/i, 'Recurso ainda não configurado no banco (rode os SQLs de supabase/migrations no Supabase).'],
   [/failed to fetch|network/i, 'Sem conexão com o servidor. Verifique sua internet.']
 ]
@@ -162,6 +165,7 @@ export const useAuthStore = defineStore('auth', () => {
   /** Apaga a conta e todos os dados na nuvem. A sessão deixa de existir no servidor, então só limpa a local. */
   async function deleteAccount() {
     const sb = await client()
+    if (user.value) await removeAllImages(sb, user.value.id)
     await run(sb.rpc('delete_my_account'))
     await sb.auth.signOut({ scope: 'local' })
     user.value = null
