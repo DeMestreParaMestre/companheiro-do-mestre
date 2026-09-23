@@ -6,6 +6,7 @@ import type { PersistedData } from '../types'
 import BaseModal from './ui/BaseModal.vue'
 import AccountMenu from './ui/AccountMenu.vue'
 import { appAlert, appConfirm } from '../composables/useAppDialog'
+import { tourOpen } from '../composables/useTour'
 
 const store = useCampaignStore()
 const settings = useSettingsStore()
@@ -16,6 +17,10 @@ const showDeleteCamp = ref(false)
 const newCampName = ref('')
 const renameCampInput = ref('')
 const importInput = ref<HTMLInputElement | null>(null)
+
+function openGuide() {
+  tourOpen.value = true
+}
 
 function onSwitch(e: Event) {
   store.switchCamp((e.target as HTMLSelectElement).value)
@@ -94,7 +99,7 @@ function onImport(e: Event) {
     <h1 class="title">COMPANHEIRO DO MESTRE</h1>
     <p class="subtitle">Ferramentas para a sua Mesa de RPG</p>
     <div class="hRule"></div>
-    <div class="campBar">
+    <div class="campBar" data-tour="camp">
       <span class="campLabel">⬡ Campanha:</span>
       <select class="campSel" :value="store.activeId" @change="onSwitch">
         <option v-for="c in store.campaigns" :key="c.id" :value="c.id">{{ c.name }}</option>
@@ -103,7 +108,8 @@ function onImport(e: Event) {
       <button class="btn btnOut sm" @click="openRenameCamp">✏</button>
       <button class="btn btnDng sm" @click="openDeleteCamp">✕ Apagar</button>
     </div>
-    <div class="hActions">
+    <div class="hActions" data-tour="actions">
+      <button class="btn btnOut sm" title="Tour pelas ferramentas" @click="openGuide">? Guia</button>
       <button class="btn btnOut sm" @click="store.exportData()">⬡ Exportar</button>
       <button class="btn btnOut sm" @click="importInput?.click()">⬡ Importar</button>
       <input ref="importInput" type="file" accept=".json" @change="onImport" />

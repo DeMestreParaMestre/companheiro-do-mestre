@@ -12,7 +12,7 @@ import { toRemote, uploadMissing, fromRemote } from '../utils/imageStore'
 
 const META_KEY = 'nc_sync'
 // Campanha de testes do modo dev (src/dev/seedCampaign.ts): nunca vai para a nuvem.
-const DEV_CAMPAIGN_ID = 'dev-sandbox'
+export const DEV_CAMPAIGN_ID = 'dev-sandbox'
 const PUSH_DELAY = 3000
 
 /** owner = conta dona das campanhas deste navegador; meta = o que foi sincronizado por campanha. */

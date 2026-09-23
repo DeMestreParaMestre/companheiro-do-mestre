@@ -21,6 +21,7 @@ const tabs = [
       :key="t.id"
       class="nav-btn"
       :class="{ active: active === t.id }"
+      :data-tour="t.id"
       @click="emit('change', t.id)"
     >
       {{ t.label }}

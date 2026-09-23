@@ -883,7 +883,7 @@ function onShortcut(e: KeyboardEvent) {
 <template>
   <div class="section" :class="{ active }">
     <h2 class="sTitle">Controlador de Iniciativa</h2>
-    <div class="card">
+    <div class="card" data-tour="init-add">
       <div class="fRow">
         <div class="fGrp">
           <label>Vincular Ficha</label>
@@ -919,7 +919,7 @@ function onShortcut(e: KeyboardEvent) {
       </div>
     </div>
 
-    <div style="display: flex; gap: 0.5rem; margin-bottom: 0.75rem; flex-wrap: wrap; align-items: center">
+    <div data-tour="init-toolbar" style="display: flex; gap: 0.5rem; margin-bottom: 0.75rem; flex-wrap: wrap; align-items: center">
       <button class="btn btnOut sm" @click="nextTurn">▶ Próximo Turno</button>
       <button class="btn btnOut sm" @click="resetTurns">↺ Reiniciar</button>
       <button class="btn btnOut sm" @click="openPartyConfig">⬡ Configurar Party</button>
@@ -933,7 +933,7 @@ function onShortcut(e: KeyboardEvent) {
       </button>
     </div>
 
-    <MusicMiniBar style="margin-bottom: 0.75rem" :on-pick="() => (musicPicker = true)" />
+    <MusicMiniBar data-tour="init-music" style="margin-bottom: 0.75rem" :on-pick="() => (musicPicker = true)" />
 
     <div v-if="showLog" class="card" style="max-height: 240px; overflow-y: auto">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem">

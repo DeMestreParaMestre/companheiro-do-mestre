@@ -270,12 +270,12 @@ function onDrop(e: DragEvent, tid: number) {
       </div>
     </div>
 
-    <div v-if="!showForm" style="margin-bottom: 0.8rem">
+    <div v-if="!showForm" data-tour="pjs-add" style="margin-bottom: 0.8rem">
       <button class="btn btnRed" @click="showPjForm">+ Adicionar Personagem</button>
     </div>
 
     <!-- Dashboard -->
-    <div v-if="personagens.length" style="margin-bottom: 1.2rem">
+    <div v-if="personagens.length" data-tour="pjs-dash" style="margin-bottom: 1.2rem">
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.7rem">
         <div class="dbPanel">
           <div class="dbTitle">👁 Passive Perception</div>
