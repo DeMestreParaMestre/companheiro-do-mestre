@@ -335,7 +335,7 @@ onMounted(() => {
         <div v-if="songsInCat(cat).length" class="catBlock">
           <div class="catBlockLabel">Músicas</div>
           <div v-for="s in songsInCat(cat)" :key="s.id" class="card musicRow" :class="{ playing: player.isPlayingSong(s) }">
-            <img v-if="youtubeThumb(s.url)" :src="youtubeThumb(s.url)!" :alt="s.name" class="musicThumb" @click="player.playSong(s)" />
+            <img v-if="youtubeThumb(s.url)" :src="youtubeThumb(s.url)!" :alt="s.name" class="musicThumb" loading="lazy" @click="player.playSong(s)" />
             <div class="musicMeta">
               <div class="musicName">{{ s.name }}</div>
               <div v-if="s.desc" class="musicDesc">{{ s.desc }}</div>
@@ -355,7 +355,7 @@ onMounted(() => {
           <template v-for="(pl, plIndex) in playlistsInCat(cat)" :key="pl.id">
           <!-- Playlist minimizada: linha compacta com a capa da 1ª música (como as músicas) -->
           <div v-if="collapsedPlaylists.has(pl.id)" class="card musicRow">
-            <img v-if="firstThumb(pl)" :src="firstThumb(pl)!" :alt="pl.name" class="musicThumb" @click="player.playPlaylist(pl)" />
+            <img v-if="firstThumb(pl)" :src="firstThumb(pl)!" :alt="pl.name" class="musicThumb" loading="lazy" @click="player.playPlaylist(pl)" />
             <div v-else class="musicThumb plThumbEmpty" @click="player.playPlaylist(pl)">⬡</div>
             <div class="musicMeta">
               <div class="musicName">💿 {{ pl.name }} <span class="refCount">{{ pl.songs.length }}</span></div>

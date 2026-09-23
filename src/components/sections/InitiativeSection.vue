@@ -42,7 +42,7 @@ import {
 } from '../../utils/deathSaves'
 import { appAlert, appConfirm } from '../../composables/useAppDialog'
 
-defineProps<{ active: boolean }>()
+const props = defineProps<{ active: boolean }>()
 
 const store = useCampaignStore()
 const camp = computed(() => store.activeCampaign)
@@ -872,7 +872,7 @@ function onShortcut(e: KeyboardEvent) {
   const tag = (e.target as HTMLElement).tagName
   const typing = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT'
   const anyModal = document.querySelector('.mOv.open')
-  if (typing || anyModal) return
+  if (!props.active || typing || anyModal || e.ctrlKey || e.metaKey || e.altKey) return
   if (e.key === 'n' || e.key === 'N') {
     e.preventDefault()
     nextTurn()
@@ -959,7 +959,7 @@ function onShortcut(e: KeyboardEvent) {
 
     <div>
       <div v-if="!camp.creatures.length" class="empty">Nenhuma criatura.</div>
-      <template v-for="(row, ri) in rows" :key="ri">
+      <template v-for="row in rows" :key="'div' in row ? 'div' + row.div : row.c.id">
         <div v-if="'div' in row" class="divLine"><hr /><span>⬡ Init {{ row.div }}</span><hr /></div>
         <div v-else class="cRow" :class="{ aTurn: row.i === camp.currentTurn, dead: row.c.dead, unconscious: isUnconscious(row.c) }">
           <div

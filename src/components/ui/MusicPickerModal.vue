@@ -88,7 +88,7 @@ function playPlaylist(pl: Playlist) {
               class="mpRow"
               :class="{ mpActive: player.isPlaylist && player.playingContext?.id === pl.id }"
             >
-              <img v-if="firstThumb(pl)" :src="firstThumb(pl)!" :alt="pl.name" class="mpThumb" />
+              <img v-if="firstThumb(pl)" :src="firstThumb(pl)!" :alt="pl.name" class="mpThumb" loading="lazy" />
               <div v-else class="mpThumb mpThumbEmpty">⬡</div>
               <span class="mpName">💿 {{ pl.name }}</span>
               <span class="mpMeta">{{ pl.songs.length }} faixas</span>
@@ -101,7 +101,7 @@ function playPlaylist(pl: Playlist) {
               class="mpRow"
               :class="{ mpActive: player.isPlayingSong(s) }"
             >
-              <img v-if="youtubeThumb(s.url)" :src="youtubeThumb(s.url)!" :alt="s.name" class="mpThumb" />
+              <img v-if="youtubeThumb(s.url)" :src="youtubeThumb(s.url)!" :alt="s.name" class="mpThumb" loading="lazy" />
               <div v-else class="mpThumb mpThumbEmpty">⬡</div>
               <span class="mpName">{{ s.name }}</span>
               <button class="btn btnRed sm" @click="playSong(s)">▶</button>

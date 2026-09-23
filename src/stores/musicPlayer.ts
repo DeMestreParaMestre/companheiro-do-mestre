@@ -54,6 +54,8 @@ export const useMusicPlayerStore = defineStore('musicPlayer', () => {
   async function loadCurrent() {
     const s = nowPlaying.value
     if (!s) return
+    // Seção Músicas ainda não montada: init() retoma a faixa quando o host existir.
+    if (!player && !document.getElementById(HOST_ID)) return
     const vid = youtubeId(s.url)
     if (!vid) {
       await appAlert('Link do YouTube inválido nesta música.')
@@ -137,10 +139,9 @@ export const useMusicPlayerStore = defineStore('musicPlayer', () => {
     repeat.value = !repeat.value
   }
 
-  async function init() {
-    await ensurePlayer().catch(() => {
-      /* tenta de novo ao tocar */
-    })
+  // A API do YouTube só é baixada no primeiro play.
+  function init() {
+    if (!player && nowPlaying.value) void loadCurrent()
   }
 
   function destroy() {
