@@ -28,6 +28,33 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,png,svg,woff,woff2}'],
         runtimeCaching: [
           {
+            // Lista de fontes do Open5e quase nunca muda: responde do cache e atualiza por trás.
+            urlPattern: ({ url }) => url.origin === 'https://api.open5e.com' && url.pathname.startsWith('/v2/documents/'),
+            handler: 'StaleWhileRevalidate',
+            options: { cacheName: 'open5e-docs', expiration: { maxEntries: 5 } }
+          },
+          {
+            // Miniaturas do YouTube (Músicas/Referências): <img> sem CORS gera resposta opaca (status 0).
+            urlPattern: ({ url }) => url.origin === 'https://img.youtube.com',
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'yt-thumbs',
+              cacheableResponse: { statuses: [0, 200] },
+              // ponytail: resposta opaca conta ~7 MB na cota do Chrome; limite baixo + purge. Com CORS confirmado, subir o limite.
+              expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 * 60, purgeOnQuotaError: true }
+            }
+          },
+          {
+            // Magias/monstros/itens: rede primeiro, cache quando offline.
+            urlPattern: ({ url }) => url.origin === 'https://api.open5e.com',
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'open5e-api',
+              networkTimeoutSeconds: 5,
+              expiration: { maxEntries: 200, maxAgeSeconds: 60 * 60 * 24 * 30 }
+            }
+          },
+          {
             urlPattern: ({ url }) => url.origin === 'https://fonts.googleapis.com',
             handler: 'StaleWhileRevalidate',
             options: { cacheName: 'google-fonts-stylesheets' }

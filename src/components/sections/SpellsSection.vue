@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { ref, reactive, computed, watch } from 'vue'
 import { searchSpells, fetchSources, type Spell, type SourceDoc } from '../../utils/spells'
 
 const props = defineProps<{ active: boolean }>()
@@ -32,16 +32,20 @@ const scopeLabel = computed(() => {
   return 'todas as fontes disponíveis'
 })
 
+let reqSeq = 0
 async function run() {
+  const seq = ++reqSeq
   loading.value = true
   error.value = ''
   try {
-    results.value = await searchSpells(query.value, currentFilter.value)
+    const list = await searchSpells(query.value, currentFilter.value)
+    if (seq !== reqSeq) return
+    results.value = list
     loaded.value = true
   } catch (e) {
-    error.value = e instanceof Error ? e.message : 'Erro na busca.'
+    if (seq === reqSeq) error.value = e instanceof Error ? e.message : 'Erro na busca.'
   } finally {
-    loading.value = false
+    if (seq === reqSeq) loading.value = false
   }
 }
 
@@ -59,19 +63,21 @@ watch(sourceKey, () => {
   if (loaded.value) run()
 })
 
-onMounted(async () => {
-  try {
-    sources.value = await fetchSources()
-  } catch {
-    /* segue sem lista de fontes; ainda dá para buscar por sistema */
-  }
-  if (props.active) run()
-})
+// Só consulta a API quando a aba é aberta pela primeira vez.
 watch(
   () => props.active,
   (a) => {
-    if (a && !loaded.value) run()
-  }
+    if (!a || loaded.value || loading.value) return
+    run()
+    if (!sources.value.length) {
+      fetchSources()
+        .then((list) => (sources.value = list))
+        .catch(() => {
+          /* segue sem lista de fontes; ainda dá para buscar por sistema */
+        })
+    }
+  },
+  { immediate: true }
 )
 </script>
 

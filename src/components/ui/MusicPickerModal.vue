@@ -78,7 +78,7 @@ function playPlaylist(pl: Playlist) {
             class="mpRow"
             :class="{ mpActive: player.isPlayingSong(s) }"
           >
-            <img v-if="youtubeThumb(s.url)" :src="youtubeThumb(s.url)!" :alt="s.name" class="mpThumb" />
+            <img v-if="youtubeThumb(s.url)" :src="youtubeThumb(s.url)!" :alt="s.name" class="mpThumb" loading="lazy" />
             <span class="mpName">{{ s.name }}</span>
             <button class="btn btnRed sm" @click="playSong(s)">▶</button>
           </div>

@@ -65,7 +65,7 @@ const listItems = computed(() =>
 
     <div v-else-if="reference.type === 'musica'" class="refMusic">
       <a v-if="ytThumb" :href="ytWatch || reference.url || '#'" target="_blank" rel="noopener" class="refMusicThumb">
-        <img :src="ytThumb" :alt="reference.name" />
+        <img :src="ytThumb" :alt="reference.name" loading="lazy" />
         <span class="refMusicPlay">▶</span>
       </a>
       <a v-else :href="reference.url || '#'" target="_blank" rel="noopener" class="refLink">{{ reference.url }}</a>

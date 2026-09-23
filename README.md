@@ -22,7 +22,7 @@ Feito com **Vue 3 + Vite + TypeScript + Pinia**.
 - **Statblocks** completos nas fichas (atributos, CR, ações) e **import do SRD 5e** via [Open5e](https://open5e.com/).
 - **Diário**: tags, filtro por tag, linha do tempo e **@menções** clicáveis a personagens/fichas.
 - **Tela de Jogador** em janela pop-up separada (read-only, HP em barras) para arrastar a um segundo monitor/TV; espelha o combate ao vivo via `BroadcastChannel` sem travar a tela do mestre.
-- **Backup na nuvem** (Google Drive) — veja a configuração abaixo.
+- **Conta do mestre** com sincronização das campanhas entre computadores (Supabase) — veja a configuração abaixo.
 
 ## Pré-requisitos
 
@@ -66,28 +66,29 @@ npm run test:watch  # modo observação
 
 Os testes cobrem as funções puras em `src/utils/` (dados, combate, menções).
 
-## Backup na nuvem (Google Drive) — opcional
+## Conta e sincronização (Supabase) — opcional
 
-A sincronização usa OAuth do Google e guarda um único arquivo de backup na pasta
-privada do app (`appDataFolder`), invisível no Drive do usuário. Para ativar:
+Com login, as campanhas sincronizam entre computadores (uma linha por campanha,
+com controle de versão, histórico e aviso de conflito). Sem login, tudo continua
+só no navegador. Para ativar:
 
-1. No [Google Cloud Console](https://console.cloud.google.com/), crie um projeto.
-2. Ative a **Google Drive API**.
-3. Configure a **tela de consentimento OAuth** (tipo Externo) e adicione seu e-mail
-   como usuário de teste.
-4. Crie uma credencial **OAuth Client ID** do tipo **Aplicativo da Web** e adicione
-   suas origens autorizadas (ex.: `http://localhost:5173` e a URL do GitHub Pages).
-5. Crie um arquivo `.env.local` na raiz do projeto:
+1. Crie um projeto no [Supabase](https://supabase.com/) e rode, no **SQL Editor**,
+   os arquivos de [supabase/migrations/](supabase/migrations/) em ordem.
+2. Em **Authentication > URL Configuration**, defina a URL do site e adicione
+   `http://localhost:5173/companheiro-do-mestre/**` nas Redirect URLs.
+3. Crie um arquivo `.env.local` na raiz do projeto (use a chave **publishable**,
+   nunca a `service_role`/secret):
 
    ```
-   VITE_GOOGLE_CLIENT_ID=seu-client-id.apps.googleusercontent.com
+   VITE_SUPABASE_URL=https://seu-projeto.supabase.co
+   VITE_SUPABASE_ANON_KEY=sb_publishable_...
    ```
 
-6. Rode `npm run dev` (ou `npm run build`). O botão **☁ Nuvem** no cabeçalho passa a
-   permitir **Conectar**, **Enviar backup** e **Restaurar**.
+4. Para o deploy, crie os mesmos dois valores como **secrets** do repositório
+   (Settings > Secrets and variables > Actions).
 
-Sem essa variável, o botão continua visível, mas apenas informa que a nuvem não foi
-configurada — o export/import manual em arquivo `.json` segue funcionando normalmente.
+Sem essas variáveis o botão de login não aparece; o export/import manual em
+arquivo `.json` segue funcionando normalmente.
 
 ## Estrutura do projeto
 
@@ -100,7 +101,7 @@ src/
 ├── assets/styles.css      # estilos globais (tema pergaminho)
 ├── stores/                # campaign (estado + persistência) e settings (tema)
 ├── composables/           # useIdbStorage (IndexedDB)
-├── utils/                 # dice, combat, mentions, open5e, gdrive, highlight, ...
+├── utils/                 # dice, combat, mentions, open5e, syncPlan, highlight, ...
 └── components/
     ├── AppHeader.vue, AppNav.vue
     ├── ui/                # BaseModal, ImagePopup, DiceRoller, PlayerView

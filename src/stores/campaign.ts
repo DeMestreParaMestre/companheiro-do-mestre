@@ -3,6 +3,7 @@ import { ref, computed, watch } from 'vue'
 import type { Campaign, PersistedData } from '../types'
 import { idbGet, idbSet } from '../composables/useIdbStorage'
 import { migratePartyLinks } from '../utils/partyLink'
+import { compressDataUrl } from '../utils/image'
 
 const KEY = 'nc_data'
 
@@ -30,6 +31,10 @@ export const useCampaignStore = defineStore('campaign', () => {
   const campaigns = ref<Campaign[]>([])
   const activeId = ref<string | null>(null)
   const storageStatus = ref('')
+  // Campanhas apagadas pelo mestre neste navegador: só elas são apagadas na nuvem.
+  // Em memória de propósito: se a página recarregar antes de sincronizar, a
+  // campanha volta da nuvem (o lado seguro).
+  const tombstones = new Set<string>()
 
   // Equivalente à função AC() do app original.
   const activeCampaign = computed<Campaign>(() => {
@@ -41,14 +46,40 @@ export const useCampaignStore = defineStore('campaign', () => {
     return c as Campaign
   })
 
+  let persistTimer: ReturnType<typeof setTimeout> | undefined
+
+  // Grava imediatamente. IndexedDB é o principal; localStorage só como fallback
+  // (limite ~5 MB estoura fácil com imagens em base64).
   function persist() {
-    const data = JSON.stringify({ campaigns: campaigns.value, activeId: activeId.value })
-    idbSet(KEY, data).catch(() => {})
-    try {
-      localStorage.setItem(KEY, data)
-    } catch {
-      /* ignore */
+    clearTimeout(persistTimer)
+    persistTimer = undefined
+    const data = serialize()
+    idbSet(KEY, data)
+      .then(() => localStorage.removeItem(KEY))
+      .catch(() => {
+        try {
+          localStorage.setItem(KEY, data)
+        } catch {
+          /* ignore */
+        }
+      })
+  }
+
+  // Imagens salvas antes da compressão no upload: reduz uma vez, em segundo plano.
+  async function shrinkStoredImages() {
+    const holders = campaigns.value.flatMap((c) => [...c.fichas, ...c.personagens, ...c.itens, ...(c.references || [])])
+    for (const h of holders) {
+      if (h.img && h.img.length > 400_000) h.img = await compressDataUrl(h.img)
     }
+  }
+
+  function schedulePersist() {
+    clearTimeout(persistTimer)
+    persistTimer = setTimeout(persist, 400)
+  }
+
+  function flushPending() {
+    if (persistTimer !== undefined) persist()
   }
 
   async function loadStorage() {
@@ -182,12 +213,18 @@ export const useCampaignStore = defineStore('campaign', () => {
       }
     }
     // Persistência automática: substitui as chamadas manuais de persist() do app original.
-    watch([campaigns, activeId], () => persist(), { deep: true })
+    watch([campaigns, activeId], schedulePersist, { deep: true })
+    window.addEventListener('pagehide', flushPending)
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') flushPending()
+    })
+    // Pede ao navegador para não apagar o IndexedDB sob pressão de espaço / inatividade.
+    navigator.storage?.persist?.().catch(() => {})
+    setTimeout(() => void shrinkStoredImages(), 3000)
   }
 
   function switchCamp(id: string) {
     activeId.value = id
-    persist()
   }
 
   function createCamp(name: string) {
@@ -196,7 +233,6 @@ export const useCampaignStore = defineStore('campaign', () => {
     const c = newCampaign(n)
     campaigns.value.push(c)
     activeId.value = c.id
-    persist()
     return true
   }
 
@@ -204,14 +240,13 @@ export const useCampaignStore = defineStore('campaign', () => {
     const n = name.trim()
     if (!n) return
     activeCampaign.value.name = n
-    persist()
   }
 
   function deleteCamp() {
     if (campaigns.value.length <= 1) return false
+    tombstones.add(activeId.value!)
     campaigns.value = campaigns.value.filter((c) => c.id !== activeId.value)
     activeId.value = campaigns.value[0].id
-    persist()
     return true
   }
 
@@ -220,19 +255,22 @@ export const useCampaignStore = defineStore('campaign', () => {
   }
 
   function exportData() {
+    const url = URL.createObjectURL(new Blob([serialize()], { type: 'application/json' }))
     const a = document.createElement('a')
-    a.href =
-      'data:application/json;charset=utf-8,' +
-      encodeURIComponent(JSON.stringify({ campaigns: campaigns.value, activeId: activeId.value }, null, 2))
+    a.href = url
     a.download = 'companheiro_backup.json'
     a.click()
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
   }
 
+  /** Lança erro se o backup não tiver campanhas válidas (evita apagar os dados atuais). */
   function importData(d: PersistedData) {
-    if (d.campaigns) {
-      campaigns.value = d.campaigns
-      activeId.value = d.activeId || d.campaigns[0].id
+    const list = d?.campaigns
+    if (!Array.isArray(list) || !list.length || !list.every((c) => c && typeof c.id === 'string')) {
+      throw new Error('Backup inválido: nenhuma campanha encontrada.')
     }
+    campaigns.value = list
+    activeId.value = list.some((c) => c.id === d.activeId) ? d.activeId : list[0].id
     ensureDefaults()
     persist()
   }
@@ -242,13 +280,14 @@ export const useCampaignStore = defineStore('campaign', () => {
     activeId,
     storageStatus,
     activeCampaign,
+    tombstones,
+    ensureDefaults,
     persist,
     init,
     switchCamp,
     createCamp,
     renameCamp,
     deleteCamp,
-    serialize,
     exportData,
     importData
   }
