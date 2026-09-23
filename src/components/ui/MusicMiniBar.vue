@@ -7,13 +7,13 @@ const player = useMusicPlayerStore()
 </script>
 
 <template>
-  <div class="musicMini" :class="{ active: player.isActive }">
-    <button class="btn btnOut sm musicPickBtn" title="Escolher música ou playlist" @click="onPick">🎵</button>
+  <div class="musicMini" :class="{ active: player.isActive }" title="Escolher música ou playlist" @click="onPick">
+    <button class="btn btnOut sm musicPickBtn" title="Escolher música ou playlist" @click.stop="onPick">🎵</button>
     <button
       v-if="player.isActive"
       class="btn btnOut sm"
       :title="player.isPaused ? 'Retomar' : 'Pausar'"
-      @click="player.togglePlay()"
+      @click.stop="player.togglePlay()"
     >
       {{ player.isPaused ? '▶' : '⏸' }}
     </button>
@@ -24,18 +24,18 @@ const player = useMusicPlayerStore()
         <span v-if="player.isPlaylist" class="musicMiniPos">{{ player.qIndex + 1 }}/{{ player.queue.length }}</span>
       </div>
       <div class="musicMiniControls">
-        <button class="btn btnOut sm" :disabled="!player.isPlaylist || player.qIndex === 0" title="Anterior" @click="player.prev()">⏮</button>
+        <button class="btn btnOut sm" :disabled="!player.isPlaylist || player.qIndex === 0" title="Anterior" @click.stop="player.prev()">⏮</button>
         <button
           class="btn btnOut sm"
           :disabled="!player.isPlaylist || player.qIndex >= player.queue.length - 1"
           title="Próxima"
-          @click="player.next()"
+          @click.stop="player.next()"
         >
           ⏭
         </button>
-        <button class="btn sm" :class="player.repeat ? 'btnRed' : 'btnOut'" title="Repetir" @click="player.toggleRepeat()">🔁</button>
-        <button class="btn btnOut sm" title="Trocar música" @click="onPick">Trocar</button>
-        <button class="btn btnDng sm" title="Parar" @click="player.stop()">✕</button>
+        <button class="btn sm" :class="player.repeat ? 'btnRed' : 'btnOut'" title="Repetir" @click.stop="player.toggleRepeat()">🔁</button>
+        <button class="btn btnOut sm" title="Trocar música" @click.stop="onPick">Trocar</button>
+        <button class="btn btnDng sm" title="Parar" @click.stop="player.stop()">✕</button>
       </div>
     </div>
     <span v-else class="musicMiniIdle">Trilha sonora</span>
@@ -54,6 +54,10 @@ const player = useMusicPlayerStore()
   border: 1px solid var(--border);
   border-radius: 3px;
   background: var(--bg2);
+  cursor: pointer;
+}
+.musicMini:hover {
+  border-color: var(--red);
 }
 .musicMini.active {
   border-color: var(--red);

@@ -23,6 +23,7 @@ import { applyLongRestToParty } from '../../utils/longRest'
 import { groupReferences } from '../../utils/refGroups'
 import { PLAYER_CHANNEL, type PlayerMessage } from '../../utils/playerChannel'
 import { spawnFromTemplate, templateSummary } from '../../utils/encounters'
+import { isCustomCond, condMeta, condLabel, customCondKeys, addCustomCondition } from '../../utils/conditions'
 import BaseModal from '../ui/BaseModal.vue'
 import ImagePopup from '../ui/ImagePopup.vue'
 import StatblockModal from '../ui/StatblockModal.vue'
@@ -124,7 +125,7 @@ async function addCreature() {
       hp,
       hpMax: hp,
       ac,
-      fichaId: cFichaLink.value,
+      fichaId: f ? f.id : '',
       dead: false,
       conditions: [],
       initBonus
@@ -227,12 +228,8 @@ function fichaName(c: Creature) {
   const f = camp.value.fichas.find((f) => String(f.id) === String(c.fichaId))
   return f ? f.name : ''
 }
-function condMeta(k: string) {
-  return CONDS.find((x) => x.k === k)
-}
 function pillLabel(c: Creature, k: string) {
-  const cd = condMeta(k)
-  let base = cd?.custom ? (c.customConditionLabel && c.customConditionLabel[k]) || 'Outros' : cd ? cd.l : k
+  let base = condLabel(c, k)
   const dur = c.conditionDurations && c.conditionDurations[k]
   if (dur && dur > 0) base += ' (' + dur + 'rd)'
   return base
@@ -251,18 +248,13 @@ function tickDurations() {
       if (v <= 0) {
         c.conditions = (c.conditions || []).filter((x) => x !== k)
         delete c.conditionDurations![k]
-        log(`${c.name}: condição "${pillLabelRaw(c, k)}" expirou`)
+        log(`${c.name}: condição "${condLabel(c, k)}" expirou`)
       } else {
         c.conditionDurations![k] = v
       }
     })
   })
 }
-function pillLabelRaw(c: Creature, k: string) {
-  const cd = condMeta(k)
-  return cd?.custom ? (c.customConditionLabel && c.customConditionLabel[k]) || 'Outros' : cd ? cd.l : k
-}
-
 function nextTurn() {
   const c = camp.value
   if (!c.creatures.length) return
@@ -345,23 +337,17 @@ onBeforeUnmount(() => {
 
 function onCondChange(c: Creature, k: string, e: Event) {
   const checked = (e.target as HTMLInputElement).checked
-  if (k === 'Outros' && checked) {
-    customStatus.cid = c.id
-    customStatus.label = ''
-    customStatus.open = true
-    return
-  }
   if (!c.conditions) c.conditions = []
   if (checked) {
     if (!c.conditions.includes(k)) c.conditions.push(k)
   } else {
-    c.conditions = c.conditions.filter((x) => x !== k)
-    if (c.conditionDurations) delete c.conditionDurations[k]
+    removeCond(c, k)
   }
 }
 function removeCond(c: Creature, k: string) {
   c.conditions = (c.conditions || []).filter((x) => x !== k)
   if (c.conditionDurations) delete c.conditionDurations[k]
+  if (isCustomCond(k) && c.customConditionLabel) delete c.customConditionLabel[k]
 }
 function setDuration(c: Creature, k: string, e: Event) {
   const v = parseInt((e.target as HTMLInputElement).value)
@@ -387,20 +373,16 @@ function hideTip(e: MouseEvent) {
 }
 
 // ----- Custom status modal -----
+// Cada confirmação cria um novo efeito "Outros", então é possível ter vários.
 const customStatus = reactive({ open: false, cid: 0, label: '' })
+function openCustomStatus(c: Creature) {
+  customStatus.cid = c.id
+  customStatus.label = ''
+  customStatus.open = true
+}
 function confirmCustomStatus() {
-  const label = customStatus.label.trim()
-  if (!label) {
-    customStatus.open = false
-    return
-  }
   const c = camp.value.creatures.find((x) => x.id === customStatus.cid)
-  if (c) {
-    if (!c.conditions) c.conditions = []
-    if (!c.conditions.includes('Outros')) c.conditions.push('Outros')
-    if (!c.customConditionLabel) c.customConditionLabel = {}
-    c.customConditionLabel['Outros'] = label
-  }
+  if (c) addCustomCondition(c, customStatus.label)
   customStatus.open = false
 }
 
@@ -766,8 +748,8 @@ async function longRestParty() {
   log(`Descanso longo — ${restored.join(', ') || 'ninguém'}`)
 }
 
-function loadEncounter(enc: EncounterTemplate, mode: 'add' | 'replace', rollInit: boolean) {
-  const spawned = spawnFromTemplate(enc, { rollInit })
+// Insere as criaturas já prontas (com iniciativa definida) na fila de combate.
+function applyEncounterCreatures(enc: EncounterTemplate, spawned: Creature[], mode: 'add' | 'replace') {
   if (!spawned.length) return
   const c = camp.value
   const prevTurn = mode === 'replace' ? -1 : c.currentTurn
@@ -779,7 +761,48 @@ function loadEncounter(enc: EncounterTemplate, mode: 'add' | 'replace', rollInit
   }
   c.currentTurn = sortCreaturesPreservingTurn(c.creatures, prevTurn)
   log(`Encontro "${enc.name}" carregado (${templateSummary(enc)})`)
+}
+
+function loadEncounter(enc: EncounterTemplate, mode: 'add' | 'replace', rollInit: boolean) {
+  const spawned = spawnFromTemplate(enc, { rollInit })
+  if (!spawned.length) return
+  applyEncounterCreatures(enc, spawned, mode)
   encModal.value = false
+}
+
+// ----- Iniciativa manual das criaturas do encontro -----
+const encInit = reactive({
+  open: false,
+  enc: null as EncounterTemplate | null,
+  mode: 'add' as 'add' | 'replace',
+  creatures: [] as Creature[],
+  inits: [] as string[]
+})
+
+function openEncounterInit(enc: EncounterTemplate, mode: 'add' | 'replace') {
+  const spawned = spawnFromTemplate(enc, { rollInit: false })
+  if (!spawned.length) return
+  encInit.enc = enc
+  encInit.mode = mode
+  encInit.creatures = spawned
+  encInit.inits = spawned.map(() => '')
+  encModal.value = false
+  encInit.open = true
+}
+
+function rollAllEncInit() {
+  encInit.inits = encInit.creatures.map((cr) => String(rollInitiative(cr.initBonus ?? 0)))
+}
+
+function confirmEncounterInit() {
+  const enc = encInit.enc
+  if (!enc) return
+  const spawned = encInit.creatures.map((cr, i) => {
+    const init = parseInt(encInit.inits[i]) || 0
+    return { ...cr, init, initReal: init }
+  })
+  applyEncounterCreatures(enc, spawned, encInit.mode)
+  encInit.open = false
 }
 
 // ----- Painel de referências rápidas -----
@@ -872,7 +895,7 @@ function onShortcut(e: KeyboardEvent) {
               </option>
             </optgroup>
             <optgroup v-if="camp.fichas.length" label="Fichas">
-              <option v-for="f in camp.fichas" :key="f.id" :value="f.id">{{ f.name }}</option>
+              <option v-for="f in camp.fichas" :key="f.id" :value="String(f.id)">{{ f.name }}</option>
             </optgroup>
           </select>
         </div>
@@ -1016,7 +1039,15 @@ function onShortcut(e: KeyboardEvent) {
             <button class="sdBtn" @click="toggleSD(row.c.id)">Status ▾</button>
             <div class="sdMenu" :class="{ open: openStatusId === row.c.id }">
               <div v-for="cd in CONDS" :key="cd.k">
-                <label class="sdOpt">
+                <!-- "Outros": um item por efeito já adicionado + ação para adicionar mais um -->
+                <template v-if="cd.custom">
+                  <label v-for="ck in customCondKeys(row.c)" :key="ck" class="sdOpt">
+                    <input type="checkbox" checked title="Remover" @change="removeCond(row.c, ck)" />
+                    <span>{{ condLabel(row.c, ck) }}</span>
+                  </label>
+                  <div class="sdOpt sdAddCustom" @click="openCustomStatus(row.c)">＋ {{ cd.l }}…</div>
+                </template>
+                <label v-else class="sdOpt">
                   <input
                     type="checkbox"
                     :checked="(row.c.conditions || []).includes(cd.k)"
@@ -1024,7 +1055,7 @@ function onShortcut(e: KeyboardEvent) {
                   />
                   <span>{{ cd.l }}</span>
                   <input
-                    v-if="(row.c.conditions || []).includes(cd.k) && !cd.custom"
+                    v-if="(row.c.conditions || []).includes(cd.k)"
                     type="number"
                     min="1"
                     placeholder="rd"
@@ -1385,10 +1416,51 @@ function onShortcut(e: KeyboardEvent) {
           <div v-if="enc.notes" style="font-family: var(--fB); font-size: 0.82rem; color: var(--muted); margin-top: 0.25rem; font-style: italic">{{ enc.notes }}</div>
         </div>
         <div style="display: flex; flex-direction: column; gap: 0.25rem; flex-shrink: 0">
-          <button class="btn btnRed sm" @click="loadEncounter(enc, 'add', false)">+ Adicionar</button>
+          <button class="btn btnRed sm" @click="openEncounterInit(enc, 'add')">+ Adicionar</button>
           <button class="btn btnOut sm" @click="loadEncounter(enc, 'add', true)">+ Adicionar (🎲 init)</button>
-          <button class="btn btnOut sm" @click="loadEncounter(enc, 'replace', false)">Substituir</button>
+          <button class="btn btnOut sm" @click="openEncounterInit(enc, 'replace')">Substituir</button>
         </div>
+      </div>
+    </div>
+  </BaseModal>
+
+  <!-- Iniciativa das criaturas do encontro -->
+  <BaseModal :open="encInit.open" @close="encInit.open = false">
+    <div class="modal" style="min-width: 300px; max-width: 460px; width: 90vw">
+      <button class="mClose" @click="encInit.open = false">✕</button>
+      <h3>{{ encInit.mode === 'replace' ? 'Substituir por Encontro' : 'Adicionar Encontro' }}</h3>
+      <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; margin-bottom: 0.8rem; flex-wrap: wrap">
+        <p style="font-family: var(--fB); font-size: 0.88rem; color: var(--muted); font-style: italic">
+          Iniciativas de “{{ encInit.enc?.name }}”:
+        </p>
+        <button class="btn btnOut sm" @click="rollAllEncInit">🎲 Rolar todas</button>
+      </div>
+      <div style="max-height: 50vh; overflow-y: auto">
+        <div
+          v-for="(cr, i) in encInit.creatures"
+          :key="cr.id"
+          style="display: flex; align-items: center; gap: 0.65rem; padding: 0.48rem 0.7rem; background: var(--bg); border: 1px solid var(--border); border-radius: 3px; margin-bottom: 0.4rem"
+        >
+          <div style="flex: 1; min-width: 0; font-family: var(--fH); font-weight: 600; color: var(--red)">
+            {{ cr.name }}<br /><span style="font-family: var(--fN); font-size: 0.72rem; color: var(--muted)"
+              >HP:{{ cr.hpMax }}{{ cr.ac ? ' · AC:' + cr.ac : '' }}{{ cr.initBonus != null ? ' · Init ' + (cr.initBonus >= 0 ? '+' : '') + cr.initBonus : '' }}</span
+            >
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 0.2rem">
+            <span style="font-family: var(--fN); font-size: 0.68rem; color: var(--muted); text-transform: uppercase; font-weight: 600">Iniciativa</span>
+            <input
+              v-model="encInit.inits[i]"
+              type="number"
+              placeholder="0"
+              style="width: 70px; background: var(--light); border: 1px solid var(--border); color: var(--ink); padding: 0.32rem 0.48rem; border-radius: 3px; font-size: 0.9rem"
+            />
+          </div>
+        </div>
+      </div>
+      <div style="text-align: right; margin-top: 0.8rem">
+        <button class="btn btnRed" @click="confirmEncounterInit">
+          {{ encInit.mode === 'replace' ? '↺ Substituir' : '+ Adicionar' }}
+        </button>
       </div>
     </div>
   </BaseModal>
