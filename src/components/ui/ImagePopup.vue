@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, nextTick } from 'vue'
+import { ref, computed, watch, nextTick } from 'vue'
 import BaseModal from './BaseModal.vue'
 
 const props = defineProps<{ open: boolean; name: string; img: string | null }>()
@@ -9,7 +9,9 @@ const emit = defineEmits<{ close: [] }>()
 // Assim o zoom do navegador (Ctrl +) amplia a imagem junto com a página.
 // Não recalculamos no resize de propósito: o zoom dispara resize e desfaria o efeito.
 const imgEl = ref<HTMLImageElement | null>(null)
+const scrollEl = ref<HTMLElement | null>(null)
 const fitWidth = ref<number | null>(null)
+const zoomed = ref(false)
 
 function fitToWindow() {
   const el = imgEl.value
@@ -18,10 +20,31 @@ function fitToWindow() {
   fitWidth.value = Math.round(el.naturalWidth * scale)
 }
 
+const imgWidth = computed(() => {
+  if (!fitWidth.value) return null
+  // Imagens pequenas já cabem inteiras: sem o mínimo de 2x o clique não ampliaria nada.
+  return zoomed.value ? Math.max(imgEl.value?.naturalWidth || 0, fitWidth.value * 2) : fitWidth.value
+})
+
+/** Amplia mantendo sob o cursor o ponto clicado; clicar de novo volta ao tamanho da tela. */
+async function toggleZoom(e: MouseEvent) {
+  const el = imgEl.value
+  if (!el || !fitWidth.value) return
+  const r = el.getBoundingClientRect()
+  const fx = (e.clientX - r.left) / r.width
+  const fy = (e.clientY - r.top) / r.height
+  zoomed.value = !zoomed.value
+  if (!zoomed.value) return
+  await nextTick()
+  const r2 = el.getBoundingClientRect()
+  scrollEl.value?.scrollBy(r2.left + fx * r2.width - e.clientX, r2.top + fy * r2.height - e.clientY)
+}
+
 watch(
   () => [props.open, props.img] as const,
   async ([open]) => {
     fitWidth.value = null
+    zoomed.value = false
     if (!open) return
     await nextTick()
     // Imagem já carregada (ex.: reaberta): o evento load não dispara de novo.
@@ -33,7 +56,7 @@ watch(
 <template>
   <BaseModal :open="open" @close="emit('close')">
     <button class="ipClose" title="Fechar" @click="emit('close')">✕</button>
-    <div class="ipScroll">
+    <div ref="scrollEl" class="ipScroll">
       <div class="ipContent">
         <p class="ipName">{{ name }}</p>
         <img
@@ -42,8 +65,11 @@ watch(
           :src="img"
           alt=""
           class="ipImg"
-          :style="fitWidth ? { width: fitWidth + 'px' } : { maxWidth: '90vw', maxHeight: '80vh' }"
+          :class="{ zoomed }"
+          :title="zoomed ? 'Clique para reduzir' : 'Clique para ampliar'"
+          :style="imgWidth ? { width: imgWidth + 'px' } : { maxWidth: '90vw', maxHeight: '80vh' }"
           @load="fitToWindow"
+          @click="toggleZoom"
         />
         <div v-else class="ipEmpty">Sem imagem</div>
       </div>
@@ -84,6 +110,10 @@ watch(
   border-radius: 4px;
   border: 2px solid var(--border2);
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+  cursor: zoom-in;
+}
+.ipImg.zoomed {
+  cursor: zoom-out;
 }
 .ipEmpty {
   background: var(--bg2);

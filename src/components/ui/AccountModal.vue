@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ref, reactive, watch } from 'vue'
 import { useAuthStore, authErrorMessage, type AuthSession } from '../../stores/auth'
+import { useCampaignStore } from '../../stores/campaign'
+import { useSyncStore } from '../../stores/sync'
 import { parseUserAgent } from '../../utils/userAgent'
 import { useToast } from '../../composables/useToast'
 import { appConfirm } from '../../composables/useAppDialog'
@@ -10,11 +12,15 @@ const props = defineProps<{ open: boolean }>()
 const emit = defineEmits<{ close: [] }>()
 
 const auth = useAuthStore()
+const campaigns = useCampaignStore()
+const sync = useSyncStore()
 const toast = useToast()
 
-type Section = 'name' | 'email' | 'password' | 'sessions'
+type Section = 'name' | 'email' | 'password' | 'sessions' | 'delete'
 const busy = ref<Section | null>(null)
-const errors = reactive<Record<Section, string>>({ name: '', email: '', password: '', sessions: '' })
+const errors = reactive<Record<Section, string>>({ name: '', email: '', password: '', sessions: '', delete: '' })
+const DELETE_WORD = 'EXCLUIR'
+const del = reactive({ open: false, word: '', clearLocal: true })
 
 const name = ref('')
 const newEmail = ref('')
@@ -31,6 +37,7 @@ watch(
     newEmail.value = ''
     emailSentTo.value = ''
     Object.assign(pw, { value: '', confirm: '', code: '', needsCode: false, show: false })
+    Object.assign(del, { open: false, word: '', clearLocal: true })
     ;(Object.keys(errors) as Section[]).forEach((k) => (errors[k] = ''))
     void loadSessions()
   },
@@ -152,6 +159,17 @@ function resendCode() {
   return act('password', async () => {
     await auth.reauthenticate()
     toast.show('Novo código enviado.', 'info')
+  })
+}
+
+function deleteAccount() {
+  if (del.word.trim().toUpperCase() !== DELETE_WORD) return
+  return act('delete', async () => {
+    await auth.deleteAccount()
+    if (del.clearLocal) await sync.clearLocal()
+    else await sync.detach()
+    emit('close')
+    toast.show('Sua conta e os dados na nuvem foram excluídos.')
   })
 }
 
@@ -278,6 +296,33 @@ async function signOutEverywhere() {
         <p v-if="errors.sessions" class="accErr" role="alert">{{ errors.sessions }}</p>
         <p class="accHint accNote">O aparelho encerrado perde o acesso em até 1 hora.</p>
         <button class="btn btnDng" :disabled="busy === 'sessions'" @click="signOutEverywhere">⎋ Sair de todos os dispositivos</button>
+      </section>
+
+      <!-- Excluir conta -->
+      <section class="accSec">
+        <h4>Excluir conta</h4>
+        <p class="accHint">Apaga sua conta e todas as campanhas salvas na nuvem, incluindo o histórico de versões. Não é possível desfazer.</p>
+        <button v-if="!del.open" class="btn btnOut accDelOpen" @click="del.open = true">Excluir minha conta…</button>
+
+        <form v-else class="accDelBox accStack" @submit.prevent="deleteAccount">
+          <p><strong>Antes de continuar:</strong> baixe um backup se quiser guardar suas campanhas. Ele pode ser importado depois, com ou sem conta.</p>
+          <button type="button" class="btn btnOut sm accDelBackup" @click="campaigns.exportData()">⬇ Baixar backup das campanhas</button>
+
+          <label class="accCheck"><input v-model="del.clearLocal" type="checkbox" /> Apagar também as campanhas deste navegador</label>
+
+          <div class="fGrp">
+            <label for="accDelWord">Digite <strong>{{ DELETE_WORD }}</strong> para confirmar</label>
+            <input id="accDelWord" v-model="del.word" type="text" autocomplete="off" :placeholder="DELETE_WORD" />
+          </div>
+
+          <p v-if="errors.delete" class="accErr" role="alert">{{ errors.delete }}</p>
+          <div class="accDelActions">
+            <button type="button" class="btn btnOut" :disabled="busy === 'delete'" @click="del.open = false">Cancelar</button>
+            <button type="submit" class="btn btnDng" :disabled="busy === 'delete' || del.word.trim().toUpperCase() !== DELETE_WORD">
+              {{ busy === 'delete' ? 'Excluindo…' : 'Excluir conta definitivamente' }}
+            </button>
+          </div>
+        </form>
       </section>
     </div>
   </BaseModal>
@@ -462,6 +507,31 @@ async function signOutEverywhere() {
 .accNote {
   font-size: 0.72rem;
   font-style: italic;
+}
+.accDelOpen {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+.accDelBox {
+  background: var(--danger-bg);
+  border: 1px solid var(--danger);
+  border-left-width: 4px;
+  border-radius: 3px;
+  padding: 0.75rem 0.85rem;
+}
+.accDelBox p {
+  font-family: var(--fN);
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--ink);
+}
+.accDelBackup {
+  align-self: flex-start;
+}
+.accDelActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
 }
 .btn:disabled {
   opacity: 0.55;

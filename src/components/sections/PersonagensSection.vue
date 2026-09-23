@@ -2,12 +2,12 @@
 import { ref, reactive, computed } from 'vue'
 import { useCampaignStore } from '../../stores/campaign'
 import type { Personagem, Item } from '../../types'
-import { fileToDataUrl } from '../../utils/image'
 import { syncFromPersonagem, unlinkPersonagemFromParty, personagemCurrentHp, personagemMaxHp } from '../../utils/partyLink'
 import { applyLongRestFromPersonagemCard } from '../../utils/longRest'
 import { appAlert, appConfirm } from '../../composables/useAppDialog'
 import BaseModal from '../ui/BaseModal.vue'
 import ImagePopup from '../ui/ImagePopup.vue'
+import ImageField from '../ui/ImageField.vue'
 
 defineProps<{ active: boolean }>()
 
@@ -24,7 +24,7 @@ function isItemName(name: string) {
 const showForm = ref(false)
 const form = reactive({ nome: '', hpMax: '', hpAtual: '', ac: '', classe: '', pp: '', cristais: '0', bg: '' })
 const newAt = reactive({ sel: ['', '', ''], txt: ['', '', ''] })
-const pjImgInput = ref<HTMLInputElement | null>(null)
+const formImg = ref<string | null>(null)
 
 function optionsForNew(i: number): Item[] {
   const usedByAll = personagens.value
@@ -47,7 +47,7 @@ function showPjForm() {
   form.bg = ''
   newAt.sel = ['', '', '']
   newAt.txt = ['', '', '']
-  if (pjImgInput.value) pjImgInput.value.value = ''
+  formImg.value = null
   showForm.value = true
 }
 function hidePjForm() {
@@ -70,9 +70,7 @@ async function addPJ() {
     await appAlert('Digite o nome!')
     return
   }
-  let img: string | null = null
-  const file = pjImgInput.value?.files?.[0]
-  if (file) img = await fileToDataUrl(file)
+  const img = formImg.value
   const hpMax = parseInt(form.hpMax) || null
   const hpAtual = parseInt(form.hpAtual)
   camp.value.personagens.push({
@@ -121,9 +119,8 @@ function metaText(p: Personagem) {
 }
 
 // ---- Editar ----
-const edit = reactive({ open: false, id: 0, nome: '', hpMax: '', hpAtual: '', ac: '', classe: '', pp: '', cristais: '0', bg: '', preview: null as string | null })
+const edit = reactive({ open: false, id: 0, nome: '', hpMax: '', hpAtual: '', ac: '', classe: '', pp: '', cristais: '0', bg: '', img: null as string | null })
 const editAt = reactive({ sel: ['', '', ''], txt: ['', '', ''] })
-const epjImgInput = ref<HTMLInputElement | null>(null)
 
 function optionsForEdit(i: number): Item[] {
   const usedByOthers = personagens.value
@@ -146,8 +143,7 @@ function openEdit(p: Personagem) {
   edit.pp = p.pp != null ? String(p.pp) : ''
   edit.cristais = String(p.cristais || 0)
   edit.bg = p.bg || ''
-  edit.preview = p.img
-  if (epjImgInput.value) epjImgInput.value.value = ''
+  edit.img = p.img
   // preencher attunamentos: se for item conhecido vai no select, senão no texto
   const saved = p.attunados || []
   editAt.sel = ['', '', '']
@@ -175,8 +171,7 @@ async function saveEdit() {
   p.cristais = parseInt(edit.cristais) || 0
   p.attunados = atVals(editAt.sel, editAt.txt).filter(Boolean)
   p.bg = edit.bg.trim() || null
-  const file = epjImgInput.value?.files?.[0]
-  if (file) p.img = await fileToDataUrl(file)
+  p.img = edit.img
   syncFromPersonagem(camp.value, p)
   edit.open = false
 }
@@ -263,8 +258,7 @@ function onDrop(e: DragEvent, tid: number) {
             <input v-model="newAt.txt[i - 1]" type="text" placeholder="manual" />
           </div>
         </div>
-        <label class="ulabel" @click="pjImgInput?.click()">⬡ Clique para carregar imagem</label>
-        <input ref="pjImgInput" type="file" accept="image/*" />
+        <ImageField v-model="formImg" top />
         <div class="fGrp" style="margin-top: 0.8rem">
           <label>Background</label>
           <textarea v-model="form.bg" style="min-height: 120px" placeholder="História, motivações, segredos..."></textarea>
@@ -390,11 +384,7 @@ function onDrop(e: DragEvent, tid: number) {
           <input v-model="editAt.txt[i - 1]" type="text" placeholder="manual" />
         </div>
       </div>
-      <label class="ulabel" @click="epjImgInput?.click()">⬡ Trocar imagem (opcional)</label>
-      <input ref="epjImgInput" type="file" accept="image/*" />
-      <div v-if="edit.preview" style="margin-top: 0.6rem; text-align: center">
-        <img :src="edit.preview" style="max-height: 110px; border-radius: 3px; border: 1px solid var(--border)" />
-      </div>
+      <ImageField v-model="edit.img" top />
       <div class="fGrp" style="margin-top: 0.7rem"><label>Background</label><textarea v-model="edit.bg" style="min-height: 120px"></textarea></div>
       <div style="text-align: right; margin-top: 0.9rem"><button class="btn btnRed" @click="saveEdit">Salvar</button></div>
     </div>
