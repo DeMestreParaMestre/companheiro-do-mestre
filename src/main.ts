@@ -9,6 +9,8 @@ if (location.hash === '#player') {
   })
 } else {
   Promise.all([import('./App.vue'), import('pinia')]).then(([app, pinia]) => {
-    createApp(app.default).use(pinia.createPinia()).mount('#app')
+    const vueApp = createApp(app.default).use(pinia.createPinia())
+    vueApp.mount('#app')
+    void import('./monitoring').then((m) => m.initMonitoring(vueApp))
   })
 }
