@@ -144,6 +144,9 @@ function showAddForm() {
 
 function hideAddForm() {
   showForm.value = false
+  importMsg.value = ''
+  importName.value = ''
+  resetForm()
 }
 
 async function addItem() {
@@ -233,18 +236,18 @@ function onDrop(e: DragEvent, tid: number) {
   <div class="section" :class="{ active }">
     <h2 class="sTitle">Itens Mágicos</h2>
 
-    <div class="card" data-tour="itens-import">
-      <div style="display: flex; gap: 0.5rem; align-items: flex-end; flex-wrap: wrap">
-        <div class="fGrp">
-          <label>Importar do SRD 5e (Open5e)</label>
-          <input v-model="importName" type="text" placeholder="Ex: Sword +1, Bag of Holding..." @keyup.enter="importFromSRD" />
-        </div>
-        <button class="btn btnRed" :disabled="importing" @click="importFromSRD">{{ importing ? 'Buscando...' : '⬇ Importar' }}</button>
-      </div>
-      <div v-if="importMsg" style="font-family: var(--fN); font-size: 0.75rem; color: var(--muted); margin-top: 0.35rem">{{ importMsg }}</div>
-    </div>
-
     <div v-if="showForm" style="margin-bottom: 1rem">
+      <div class="card" style="margin-bottom: 0.75rem" data-tour="itens-import">
+        <div style="display: flex; gap: 0.5rem; align-items: flex-end; flex-wrap: wrap">
+          <div class="fGrp">
+            <label>Importar do SRD 5e (Open5e)</label>
+            <input v-model="importName" type="text" placeholder="Ex: Sword +1, Bag of Holding..." @keyup.enter="importFromSRD" />
+          </div>
+          <button class="btn btnRed" :disabled="importing" @click="importFromSRD">{{ importing ? 'Buscando...' : '⬇ Importar' }}</button>
+        </div>
+        <div v-if="importMsg" style="font-family: var(--fN); font-size: 0.75rem; color: var(--muted); margin-top: 0.35rem">{{ importMsg }}</div>
+      </div>
+
       <div class="card">
         <div class="fRow">
           <div class="fGrp"><label>Nome</label><input v-model="form.nome" type="text" placeholder="Ex: Espada +1" /></div>
