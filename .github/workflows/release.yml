@@ -2,7 +2,7 @@ name: Release
 
 # Corta uma versão semântica a partir da branch escolhida (use main).
 # patch = correção, minor = feature, major = quebra, current = taga o número já no package.json.
-# O push da tag vX.Y.Z dispara o deploy. Merge na main sozinho não publica.
+# Depois da tag, chama o deploy (push de tag com GITHUB_TOKEN não dispara outro workflow).
 
 on:
   workflow_dispatch:
@@ -28,6 +28,8 @@ concurrency:
 jobs:
   release:
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -56,3 +58,16 @@ jobs:
         run: |
           VERSION=$(node -p "require('./package.json').version")
           gh release create "v$VERSION" --generate-notes --title "v$VERSION"
+      - id: version
+        run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+
+  deploy:
+    needs: release
+    uses: ./.github/workflows/deploy.yml
+    with:
+      ref: v${{ needs.release.outputs.version }}
+    secrets: inherit
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
