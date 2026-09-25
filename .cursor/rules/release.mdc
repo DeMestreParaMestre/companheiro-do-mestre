@@ -10,7 +10,8 @@ Semver em `package.json` (`2.0.0`). A UI lê `appVersionLabel()` (`src/utils/app
 
 1. PR → `main` (CI). O site **não** muda.
 2. Actions → **Release** → `main` → `patch` / `minor` / `major` (ou `current` se a tag ainda não existir).
-3. O bump vai por um PR (`chore(release): vX.Y.Z`), espera o CI, mergeia, cria a tag, o GitHub Release e dispara **Deploy to GitHub Pages**. Não commitar direto na `main` (ruleset).
+3. Isso commita o bump na `main`, cria `vX.Y.Z`, o GitHub Release e dispara **Deploy to GitHub Pages**.
+4. A ruleset "Proteger main" precisa do app **GitHub Actions** no bypass (senão o push do Release é recusado). O token do Actions **não** abre PR nesta org — não use fluxo de PR para o bump.
 
 Não usar `workflow_call` com expressões `||` sem aspas no YAML (quebra o parser). O ambiente Pages só aceita a branch `main`, não tags.
 
