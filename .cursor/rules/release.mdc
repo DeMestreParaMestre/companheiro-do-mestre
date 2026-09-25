@@ -17,3 +17,5 @@ Não usar `workflow_call` com expressões `||` sem aspas no YAML (quebra o parse
 `current` falha se a tag já existe. Depois da `v2.0.0`, use `patch`/`minor`/`major`.
 
 Deploy avulso: Actions → **Deploy to GitHub Pages** → `main` (hotfix sem nova tag).
+
+Depois do deploy, `version.json` leva o número de `package.json`. Aba com versão menor vê o modal bloqueante e só segue depois de recarregar. Hotfix sem bump de versão **não** força o pop-up.

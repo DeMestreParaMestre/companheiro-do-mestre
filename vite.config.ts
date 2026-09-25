@@ -1,7 +1,32 @@
-import { defineConfig } from 'vite'
+import { readFileSync } from 'node:fs'
+import { defineConfig, type Plugin } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { VitePWA } from 'vite-plugin-pwa'
 import { sentryVitePlugin } from '@sentry/vite-plugin'
+
+const pkgVersion = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')).version as string
+
+function versionJsonPlugin(): Plugin {
+  const body = JSON.stringify({ version: pkgVersion })
+  return {
+    name: 'version-json',
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        const path = req.url?.split('?')[0] ?? ''
+        if (!path.endsWith('/version.json') && path !== '/version.json') {
+          next()
+          return
+        }
+        res.setHeader('Content-Type', 'application/json')
+        res.setHeader('Cache-Control', 'no-store')
+        res.end(body)
+      })
+    },
+    generateBundle() {
+      this.emitFile({ type: 'asset', fileName: 'version.json', source: body })
+    }
+  }
+}
 
 // Com token (só no deploy), os source maps vão para o Sentry e são apagados do site publicado.
 const sentryToken = process.env.SENTRY_AUTH_TOKEN
@@ -13,6 +38,7 @@ export default defineConfig({
   build: { sourcemap: sentryToken ? 'hidden' : false },
   plugins: [
     vue(),
+    versionJsonPlugin(),
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['icon-192.png', 'icon-512.png'],
@@ -32,6 +58,10 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,png,svg,woff,woff2}'],
         runtimeCaching: [
+          {
+            urlPattern: ({ url }) => url.pathname.endsWith('/version.json'),
+            handler: 'NetworkOnly'
+          },
           {
             // Lista de fontes do Open5e quase nunca muda: responde do cache e atualiza por trás.
             urlPattern: ({ url }) => url.origin === 'https://api.open5e.com' && url.pathname.startsWith('/v2/documents/'),
