@@ -2,6 +2,7 @@ name: Release
 
 # Corta uma versão semântica a partir da branch escolhida (use main).
 # patch = correção, minor = feature, major = quebra, current = taga o número já no package.json.
+# A main exige PR: o bump vai por um PR, espera o CI, mergeia, e só então cria a tag.
 # Depois da tag, dispara o deploy na main (o Pages só publica a partir dela).
 
 on:
@@ -21,6 +22,7 @@ on:
 permissions:
   contents: write
   actions: write
+  pull-requests: write
 
 concurrency:
   group: release
@@ -41,21 +43,34 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-      - name: Bump or keep version
-        run: |
-          if [ "${{ inputs.bump }}" = "current" ]; then
-            VERSION=$(node -p "require('./package.json').version")
-            git tag -a "v$VERSION" -m "Release v$VERSION"
-          else
-            npm version "${{ inputs.bump }}" -m "Release v%s"
-          fi
-      - name: Push commit and tag
-        run: git push origin HEAD --follow-tags
-      - name: Create GitHub Release
+      - name: Bump version through a PR
+        if: ${{ inputs.bump != 'current' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          set -euo pipefail
+          npm version "${{ inputs.bump }}" --no-git-tag-version
           VERSION=$(node -p "require('./package.json').version")
+          BRANCH="release/v$VERSION"
+          git checkout -b "$BRANCH"
+          git add package.json package-lock.json
+          git commit -m "chore(release): v$VERSION"
+          git push -u origin "$BRANCH"
+          gh pr create --base main --head "$BRANCH" --title "chore(release): v$VERSION" --body "Bump automático do workflow Release."
+          # O check ainda não existe no primeiro segundo.
+          sleep 20
+          gh pr checks --watch --fail-fast
+          gh pr merge --squash --delete-branch --subject "chore(release): v$VERSION"
+          git fetch origin main
+          git checkout -B main origin/main
+      - name: Tag and GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          VERSION=$(node -p "require('./package.json').version")
+          git tag -a "v$VERSION" -m "Release v$VERSION"
+          git push origin "v$VERSION"
           gh release create "v$VERSION" --generate-notes --title "v$VERSION"
       - name: Deploy site
         env:
