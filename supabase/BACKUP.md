@@ -13,9 +13,13 @@ O que não entra: o conteúdo das imagens (bucket `images` do Storage), sessões
 do painel (provedores de login, templates de e-mail, SMTP, segredos do Vault).
 
 Imagens trocadas ou removidas ficam no Storage até a limpeza semanal
-(`.github/workflows/cleanup-images.yml`): apaga arquivos com mais de 48 h que
-nenhuma campanha nem o histórico referencia. Roda todo domingo às 04:00 (Brasília)
-e também sob demanda (Actions → **Limpeza de imagens órfãs** → **Run workflow**).
+(`.github/workflows/cleanup-images.yml`): lista no banco os arquivos com mais de
+48 h que nenhuma campanha nem o histórico referencia e apaga pela API do Storage.
+Roda todo domingo às 04:00 (Brasília) e também sob demanda
+(Actions → **Limpeza de imagens órfãs** → **Run workflow**).
+
+Secret extra: `SUPABASE_SERVICE_ROLE_KEY` (Project Settings → API → `service_role`).
+É a chave que ignora o RLS; não cole no chat nem no código do site.
 
 Secrets necessários no GitHub:
 
