@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Campaign } from '../types'
-import { readAsDataUrl } from './image'
+import { isAllowedImageDataUrl, readAsDataUrl, sniffImageMime } from './image'
 
 // Neste navegador as imagens ficam dentro da campanha (data URL): telas, modo
 // offline e backup não mudam. Só na nuvem viram "sbimg:<sha256>", com o
@@ -29,7 +29,7 @@ export async function toRemote(c: Campaign): Promise<{ data: Campaign; blobs: Ma
   const data = JSON.parse(JSON.stringify(c)) as Campaign
   const blobs = new Map<string, string>()
   for (const h of imageHolders(data)) {
-    if (!h.img?.startsWith('data:')) continue
+    if (!h.img?.startsWith('data:') || !isAllowedImageDataUrl(h.img)) continue
     const hash = await sha256(h.img)
     blobs.set(hash, h.img)
     h.img = REF_PREFIX + hash
@@ -40,9 +40,12 @@ export async function toRemote(c: Campaign): Promise<{ data: Campaign; blobs: Ma
 /** Sobe as imagens que ainda não estão na nuvem. `uploaded` evita reenviar a cada sincronização. */
 export async function uploadMissing(sb: SupabaseClient, uid: string, blobs: Map<string, string>, uploaded: Set<string>) {
   for (const [hash, dataUrl] of blobs) {
-    if (uploaded.has(hash)) continue
+    if (uploaded.has(hash) || !isAllowedImageDataUrl(dataUrl)) continue
     const blob = await (await fetch(dataUrl)).blob()
-    const { error } = await sb.storage.from(BUCKET).upload(`${uid}/${hash}`, blob, { contentType: blob.type, upsert: false })
+    const head = new Uint8Array(await blob.slice(0, 16).arrayBuffer())
+    const contentType = sniffImageMime(head)
+    if (!contentType) continue
+    const { error } = await sb.storage.from(BUCKET).upload(`${uid}/${hash}`, blob, { contentType, upsert: false })
     // Já existe = subiu antes (por outro aparelho ou antes de limpar o navegador).
     if (error && !/already exists|duplicate/i.test(error.message)) throw error
     uploaded.add(hash)

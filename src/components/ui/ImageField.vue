@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { fileToDataUrl } from '../../utils/image'
+import { fileToDataUrl, IMAGE_FILE_ACCEPT, IMAGE_TYPE_ERROR } from '../../utils/image'
 
 const model = defineModel<string | null>({ required: true })
 defineProps<{ top?: boolean }>()
@@ -16,8 +16,8 @@ async function onPick() {
   error.value = ''
   try {
     model.value = await fileToDataUrl(file)
-  } catch {
-    error.value = 'Não foi possível ler esta imagem. Tente outro arquivo.'
+  } catch (e) {
+    error.value = e instanceof Error && e.message === IMAGE_TYPE_ERROR ? IMAGE_TYPE_ERROR : 'Não foi possível ler esta imagem. Tente outro arquivo.'
   } finally {
     busy.value = false
     input.value!.value = ''
@@ -27,7 +27,7 @@ async function onPick() {
 
 <template>
   <div class="imgField">
-    <input ref="input" type="file" accept="image/*" @change="onPick" />
+    <input ref="input" type="file" :accept="IMAGE_FILE_ACCEPT" @change="onPick" />
 
     <div v-if="busy" class="imgFieldBox imgFieldBusy" role="status">⟳ Carregando imagem…</div>
 
