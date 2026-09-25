@@ -40,8 +40,8 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 <template>
   <div data-tour="init-toolbar" class="tbBar">
     <button class="btn btnRed sm" @click="$emit('next')">▶ Próximo Turno</button>
-    <button class="btn btnOut sm" @click="$emit('refs')">📌 Referências</button>
     <span v-if="round > 0" class="roundBadge">⏱ Rodada {{ round }}</span>
+    <button class="btn btnOut sm" @click="$emit('refs')">📌 Referências</button>
     <slot name="music" />
     <div class="tbMore" style="margin-left: auto">
       <button class="btn btnOut sm" :aria-expanded="moreOpen" @click.stop="moreOpen = !moreOpen">Mais ▾</button>
