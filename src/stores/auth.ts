@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import type { SupabaseClient, User } from '@supabase/supabase-js'
 import { removeAllImages } from '../utils/imageStore'
 import { isStaleChunkError, reloadForNewVersion } from '../utils/staleChunk'
+import { appVersionLabel } from '../utils/appVersion'
 
 const URL = import.meta.env.VITE_SUPABASE_URL
 const KEY = import.meta.env.VITE_SUPABASE_ANON_KEY
@@ -191,7 +192,7 @@ export const useAuthStore = defineStore('auth', () => {
       sb.from('feedback').insert({
         ...f,
         user_agent: navigator.userAgent.slice(0, 400),
-        app_version: ((import.meta.env.VITE_RELEASE as string | undefined) || 'dev').slice(0, 12)
+        app_version: appVersionLabel()
       })
     )
   }

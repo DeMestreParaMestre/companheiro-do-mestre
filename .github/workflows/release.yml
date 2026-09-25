@@ -1,0 +1,58 @@
+name: Release
+
+# Corta uma versão semântica a partir da branch escolhida (use main).
+# patch = correção, minor = feature, major = quebra, current = taga o número já no package.json.
+# O push da tag vX.Y.Z dispara o deploy. Merge na main sozinho não publica.
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Tipo de versão
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+          - current
+        default: patch
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - name: Git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+      - name: Bump or keep version
+        run: |
+          if [ "${{ inputs.bump }}" = "current" ]; then
+            VERSION=$(node -p "require('./package.json').version")
+            git tag -a "v$VERSION" -m "Release v$VERSION"
+          else
+            npm version "${{ inputs.bump }}" -m "Release v%s"
+          fi
+      - name: Push commit and tag
+        run: git push origin HEAD --follow-tags
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          gh release create "v$VERSION" --generate-notes --title "v$VERSION"
