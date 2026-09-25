@@ -45,7 +45,12 @@ async function send() {
       kind: kind.value,
       message: text.slice(0, 4000),
       contact: contact.value.trim().slice(0, 200) || null,
-      page: document.querySelector('.nav-btn.active')?.textContent?.trim().slice(0, 100) || ''
+      page:
+        document
+          .querySelector('.nav-btn.active')
+          ?.textContent?.replace(/^[^\p{L}]+/u, '')
+          .trim()
+          .slice(0, 100) || ''
     })
     message.value = ''
     toast.show('Obrigado! Sua mensagem foi enviada.')
