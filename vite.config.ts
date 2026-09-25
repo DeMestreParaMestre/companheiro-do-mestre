@@ -77,7 +77,6 @@ export default defineConfig({
     }),
     sentryToken
       ? sentryVitePlugin({
-        url: 'https://de.sentry.io/',
         org: process.env.SENTRY_ORG || 'demestreparamestre',
         project: process.env.SENTRY_PROJECT || 'companheiro-do-mestre',
         authToken: sentryToken,
