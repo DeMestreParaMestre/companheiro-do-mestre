@@ -25,7 +25,9 @@ export async function initMonitoring(app: App) {
       /^Failed to fetch$/,
       /^NetworkError when attempting to fetch resource\.?$/,
       /^Load failed$/,
-      /^AbortError/
+      /^AbortError/,
+      // Aba aberta durante um deploy; o app recarrega sozinho (utils/staleChunk).
+      /dynamically imported module|importing a module script failed/i
     ],
     denyUrls: [/^(chrome|moz|safari(-web)?)-extension:\/\//i, /extensions\//i],
     beforeBreadcrumb: (b) => (b.category === 'console' ? null : b),
