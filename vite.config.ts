@@ -1,11 +1,16 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { VitePWA } from 'vite-plugin-pwa'
+import { sentryVitePlugin } from '@sentry/vite-plugin'
+
+// Com token (só no deploy), os source maps vão para o Sentry e são apagados do site publicado.
+const sentryToken = process.env.SENTRY_AUTH_TOKEN
 
 // Base path para GitHub Pages (projeto servido em /companheiro-do-mestre/).
 // Para rodar em outra hospedagem na raiz, troque para '/'.
 export default defineConfig({
   base: '/companheiro-do-mestre/',
+  build: { sourcemap: sentryToken ? 'hidden' : false },
   plugins: [
     vue(),
     VitePWA({
@@ -69,6 +74,17 @@ export default defineConfig({
           }
         ]
       }
-    })
+    }),
+    sentryToken
+      ? sentryVitePlugin({
+        url: 'https://de.sentry.io/',
+        org: process.env.SENTRY_ORG || 'demestreparamestre',
+        project: process.env.SENTRY_PROJECT || 'companheiro-do-mestre',
+        authToken: sentryToken,
+        release: { name: process.env.VITE_RELEASE },
+        sourcemaps: { filesToDeleteAfterUpload: ['./dist/**/*.map'] },
+        telemetry: false
+      })
+      : null
   ]
 })
