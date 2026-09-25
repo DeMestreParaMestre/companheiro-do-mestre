@@ -44,7 +44,7 @@ const STEPS: Step[] = [
   {
     group: 'Iniciativa', sel: at('init-toolbar'),
     title: 'Controles do combate',
-    text: 'Na barra: próximo turno, referências e rodada. O restante fica em Mais ▾:',
+    text: 'Na barra: próximo turno, rodada e referências. O restante fica em Mais ▾:',
     items: [
       '▶ Próximo Turno: passa a vez e conta as rodadas (as condições com duração expiram sozinhas).',
       '📌 Referências: abre suas anotações por cima do combate.',
@@ -144,14 +144,13 @@ const STEPS: Step[] = [
     text: 'O tesouro da campanha: tudo o que os jogadores podem encontrar ou já carregam.'
   },
   {
-    group: 'Itens Mágicos', sel: at('itens-import'),
-    title: 'Importar do SRD',
-    text: 'Digite o nome do item em inglês (ex.: Bag of Holding) para trazer a descrição oficial.'
-  },
-  {
     group: 'Itens Mágicos', sel: at('itens-add'), optional: true,
-    title: 'Item próprio',
-    text: 'Crie itens da sua campanha com tipo, raridade, sintonização, imagem e descrição.'
+    title: 'Novo item',
+    text: '+ Adicionar Item abre duas formas de criar:',
+    items: [
+      'Importar do SRD: digite o nome em inglês (ex.: Bag of Holding) para trazer a descrição oficial.',
+      'Manual: tipo, raridade, sintonização, imagem e descrição.'
+    ]
   },
   {
     group: 'Itens Mágicos', sel: at('itens-filter'),
