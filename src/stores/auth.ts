@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { SupabaseClient, User } from '@supabase/supabase-js'
 import { removeAllImages } from '../utils/imageStore'
+import { isStaleChunkError, reloadForNewVersion } from '../utils/staleChunk'
 
 const URL = import.meta.env.VITE_SUPABASE_URL
 const KEY = import.meta.env.VITE_SUPABASE_ANON_KEY
@@ -46,6 +47,9 @@ const ERRORS: [RegExp, string][] = [
 ]
 
 export function authErrorMessage(e: unknown): string {
+  if (isStaleChunkError(e)) {
+    return reloadForNewVersion() ? 'O app foi atualizado. Recarregando a página…' : 'O app foi atualizado. Recarregue a página.'
+  }
   // Erros do PostgREST (rpc) são objetos simples { message, code, details }, não Error.
   const obj = e as { message?: unknown; code?: unknown } | null
   const msg = typeof obj?.message === 'string' ? `${obj.message} ${obj.code ?? ''}` : String(e)
