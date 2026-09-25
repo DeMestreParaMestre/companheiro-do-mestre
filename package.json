@@ -1,7 +1,7 @@
 {
   "name": "companheiro-do-mestre",
   "private": true,
-  "version": "2.2.1",
+  "version": "2.2.2",
   "type": "module",
   "description": "Ferramentas para a sua mesa de RPG (Vue 3 + Vite + TypeScript, PWA offline)",
   "scripts": {
