@@ -1,0 +1,27 @@
+---
+description: Mensagens de commit no formato Conventional Commits
+alwaysApply: true
+---
+
+# Commits
+
+Formato: `tipo(escopo): assunto` — assunto em português, sem ponto final, no imperativo.
+
+```
+feat(images): aceitar só JPEG, PNG e WebP no Storage
+fix(release): disparar o Deploy na main depois da tag
+docs(README): alinhar o texto ao produto atual
+```
+
+Tipos: `feat` (funcionalidade), `fix` (bug), `docs`, `refactor` (sem mudar comportamento), `test`, `chore` (deps, config), `ci`.
+
+O **escopo** é a área ou o arquivo que muda, em minúsculas, sem pasta:
+
+| Prefira | Em vez de |
+|---|---|
+| `iniciativa`, `sync`, `auth`, `images` | `src/utils/imageStore.ts` |
+| `README`, `ImageField`, `AGENTS` | um só arquivo é o ponto |
+
+Vários arquivos da mesma área → o nome da área. Mudanças misturadas → o tipo/escopo dominante, ou commits separados. Não inventar tipo composto (`featfix`).
+
+Corpo opcional (por quê). Título de PR segue o mesmo formato. Merges do GitHub (`Merge pull request #…`) não reescrever.
