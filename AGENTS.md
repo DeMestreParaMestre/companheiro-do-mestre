@@ -33,7 +33,9 @@ Entrada: `src/main.ts` (app normal ou `#player`). Shell: `src/App.vue`.
 
 ## Idioma e tom
 
-UI, alertas e commits em português. Chaves persistidas (condições, tipos) não traduzir — ver `src/constants.ts`.
+UI, alertas e assunto do commit em português. Chaves persistidas (condições, tipos) não traduzir — ver `src/constants.ts`.
+
+Commit: `tipo(escopo): assunto` — ver `.cursor/rules/commits.mdc`. Ex.: `feat(images): aceitar só JPEG, PNG e WebP`.
 
 ## Comandos
 
@@ -51,3 +53,4 @@ npm run build
 - Testes → `.cursor/rules/testing.mdc`
 - Supabase → `.cursor/rules/supabase.mdc`
 - Versão e deploy → `.cursor/rules/release.mdc`
+- Mensagens de commit → `.cursor/rules/commits.mdc`
