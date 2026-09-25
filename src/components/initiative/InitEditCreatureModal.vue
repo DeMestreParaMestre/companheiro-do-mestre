@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { reactive, computed } from 'vue'
+import { reactive, computed, watch } from 'vue'
 import { DAMAGE_TYPES } from '../../constants'
 import type { Creature } from '../../types'
 import { useCampaignStore } from '../../stores/campaign'
 import { sortCreaturesPreservingTurn } from '../../utils/initiative'
+import { applyLegendaryFields } from '../../utils/legendary'
 import { isPartyName, syncPersonagemFromCreature } from '../../utils/partyLink'
 import { onPartyHealed, onPartyDropToZero } from '../../utils/deathSaves'
 import BaseModal from '../ui/BaseModal.vue'
@@ -22,6 +23,7 @@ const editCr = reactive({
   fichaId: '' as string | number,
   isLegendary: false,
   legMax: '',
+  legResistMax: '',
   resist: [] as string[],
   vuln: [] as string[],
   immune: [] as string[]
@@ -37,11 +39,21 @@ function open(c: Creature) {
   editCr.fichaId = c.fichaId || ''
   editCr.isLegendary = !!c.isLegendary
   editCr.legMax = c.legActionsMax ? String(c.legActionsMax) : ''
+  editCr.legResistMax = c.legResistMax ? String(c.legResistMax) : ''
   editCr.resist = [...(c.resist || [])]
   editCr.vuln = [...(c.vuln || [])]
   editCr.immune = [...(c.immune || [])]
   editCr.open = true
 }
+
+watch(
+  () => editCr.isLegendary,
+  (on) => {
+    if (!on) return
+    if (!editCr.legMax) editCr.legMax = '3'
+    if (!editCr.legResistMax) editCr.legResistMax = '3'
+  }
+)
 
 function toggleDT(list: string[], t: string) {
   const i = list.indexOf(t)
@@ -69,15 +81,18 @@ function saveEditCreature() {
   } else {
     c.dead = c.hp <= 0
   }
-  c.isLegendary = editCr.isLegendary
-  const legMax = parseInt(editCr.legMax)
-  c.legActionsMax = editCr.isLegendary && legMax > 0 ? legMax : undefined
-  if (c.legActionsMax && (c.legActions == null || c.legActions > c.legActionsMax)) c.legActions = c.legActionsMax
+  applyLegendaryFields(c, {
+    isLegendary: editCr.isLegendary,
+    actionsMax: editCr.legMax,
+    resistMax: editCr.legResistMax
+  })
   c.resist = editCr.resist.length ? [...editCr.resist] : undefined
   c.vuln = editCr.vuln.length ? [...editCr.vuln] : undefined
   c.immune = editCr.immune.length ? [...editCr.immune] : undefined
+  const idx = camp.value.creatures.findIndex((x) => x.id === c.id)
+  if (idx >= 0) camp.value.creatures[idx] = { ...c }
   camp.value.currentTurn = sortCreaturesPreservingTurn(camp.value.creatures, camp.value.currentTurn)
-  syncPersonagemFromCreature(camp.value, c)
+  syncPersonagemFromCreature(camp.value, camp.value.creatures[idx] ?? c)
   editCr.open = false
 }
 
@@ -111,6 +126,9 @@ defineExpose({ open })
         </label>
         <div v-if="editCr.isLegendary" class="fGrp" style="max-width: 130px">
           <label>Ações lendárias</label><input v-model="editCr.legMax" type="number" min="1" placeholder="3" />
+        </div>
+        <div v-if="editCr.isLegendary" class="fGrp" style="max-width: 150px">
+          <label>Resist. lendária</label><input v-model="editCr.legResistMax" type="number" min="1" placeholder="3" />
         </div>
       </div>
       <div style="margin-top: 0.5rem">

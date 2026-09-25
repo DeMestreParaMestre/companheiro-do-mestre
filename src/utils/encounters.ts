@@ -1,4 +1,4 @@
-import type { Creature, EncounterSlot, EncounterTemplate } from '../types'
+import type { Creature, EncounterSlot, EncounterTemplate, Ficha } from '../types'
 import { rollInitiative } from './dice'
 
 /** Remove sufixo numérico ("Goblin 2" → "Goblin"). */
@@ -15,7 +15,8 @@ function slotKey(c: Creature): string {
     c.ac ?? '',
     c.initBonus ?? '',
     c.isLegendary ? '1' : '0',
-    c.legActionsMax ?? ''
+    c.legActionsMax ?? '',
+    c.legResistMax ?? ''
   ].join('|')
 }
 
@@ -31,7 +32,8 @@ function creatureToSlot(c: Creature): EncounterSlot {
     vuln: c.vuln?.length ? [...c.vuln] : undefined,
     immune: c.immune?.length ? [...c.immune] : undefined,
     isLegendary: c.isLegendary,
-    legActionsMax: c.legActionsMax
+    legActionsMax: c.legActionsMax,
+    legResistMax: c.legResistMax
   }
 }
 
@@ -55,14 +57,17 @@ export function templateSummary(enc: EncounterTemplate): string {
   return enc.slots.map((s) => `${s.qty}× ${s.name}`).join(', ')
 }
 
-export function slotFromFicha(f: { id: number; name: string; hpMax: number | null; ac: number | null; initBonus: number | null }, qty = 1): EncounterSlot {
+export function slotFromFicha(f: Pick<Ficha, 'id' | 'name' | 'hpMax' | 'ac' | 'initBonus' | 'isLegendary' | 'legActionsMax' | 'legResistMax'>, qty = 1): EncounterSlot {
   return {
     name: f.name,
     fichaId: f.id,
     hpMax: f.hpMax ?? 1,
     ac: f.ac,
     qty,
-    initBonus: f.initBonus
+    initBonus: f.initBonus,
+    isLegendary: f.isLegendary,
+    legActionsMax: f.legActionsMax,
+    legResistMax: f.legResistMax
   }
 }
 
@@ -94,7 +99,9 @@ export function spawnFromTemplate(
         immune: slot.immune?.length ? [...slot.immune] : undefined,
         isLegendary: slot.isLegendary,
         legActionsMax: slot.legActionsMax,
-        legActions: slot.isLegendary && slot.legActionsMax ? slot.legActionsMax : undefined
+        legActions: slot.isLegendary && slot.legActionsMax ? slot.legActionsMax : undefined,
+        legResistMax: slot.legResistMax,
+        legResist: slot.isLegendary && slot.legResistMax ? slot.legResistMax : undefined
       })
     }
   }

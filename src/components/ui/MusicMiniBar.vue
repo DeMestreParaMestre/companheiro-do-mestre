@@ -1,13 +1,18 @@
 <script setup lang="ts">
 import { useMusicPlayerStore } from '../../stores/musicPlayer'
 
-defineProps<{ onPick: () => void }>()
+defineProps<{ onPick: () => void; compact?: boolean }>()
 
 const player = useMusicPlayerStore()
 </script>
 
 <template>
-  <div class="musicMini" :class="{ active: player.isActive }" title="Escolher música ou playlist" @click="onPick">
+  <div
+    class="musicMini"
+    :class="{ active: player.isActive, compact }"
+    :title="compact ? player.nowPlaying?.name || 'Trilha sonora' : 'Escolher música ou playlist'"
+    @click="onPick"
+  >
     <button class="btn btnOut sm musicPickBtn" title="Escolher música ou playlist" @click.stop="onPick">🎵</button>
     <button
       v-if="player.isActive"
@@ -19,13 +24,14 @@ const player = useMusicPlayerStore()
     </button>
     <div v-if="player.isActive" class="musicMiniBody">
       <div class="musicMiniInfo">
-        <span class="musicMiniLabel">{{ player.isPlaylist ? 'Playlist: ' + player.playingContext?.name : 'Tocando' }}</span>
+        <span v-if="!compact" class="musicMiniLabel">{{ player.isPlaylist ? 'Playlist: ' + player.playingContext?.name : 'Tocando' }}</span>
         <span class="musicMiniName">{{ player.nowPlaying?.name }}</span>
-        <span v-if="player.isPlaylist" class="musicMiniPos">{{ player.qIndex + 1 }}/{{ player.queue.length }}</span>
+        <span v-if="player.isPlaylist && !compact" class="musicMiniPos">{{ player.qIndex + 1 }}/{{ player.queue.length }}</span>
       </div>
       <div class="musicMiniControls">
-        <button class="btn btnOut sm" :disabled="!player.isPlaylist || player.qIndex === 0" title="Anterior" @click.stop="player.prev()">⏮</button>
+        <button v-if="!compact" class="btn btnOut sm" :disabled="!player.isPlaylist || player.qIndex === 0" title="Anterior" @click.stop="player.prev()">⏮</button>
         <button
+          v-if="!compact"
           class="btn btnOut sm"
           :disabled="!player.isPlaylist || player.qIndex >= player.queue.length - 1"
           title="Próxima"
@@ -33,12 +39,12 @@ const player = useMusicPlayerStore()
         >
           ⏭
         </button>
-        <button class="btn sm" :class="player.repeat ? 'btnRed' : 'btnOut'" title="Repetir" @click.stop="player.toggleRepeat()">🔁</button>
-        <button class="btn btnOut sm" title="Trocar música" @click.stop="onPick">Trocar</button>
+        <button v-if="!compact" class="btn sm" :class="player.repeat ? 'btnRed' : 'btnOut'" title="Repetir" @click.stop="player.toggleRepeat()">🔁</button>
+        <button v-if="!compact" class="btn btnOut sm" title="Trocar música" @click.stop="onPick">Trocar</button>
         <button class="btn btnDng sm" title="Parar" @click.stop="player.stop()">✕</button>
       </div>
     </div>
-    <span v-else class="musicMiniIdle">Trilha sonora</span>
+    <span v-else-if="!compact" class="musicMiniIdle">Trilha sonora</span>
   </div>
 </template>
 
@@ -113,5 +119,25 @@ const player = useMusicPlayerStore()
   font-size: 0.75rem;
   color: var(--muted);
   font-style: italic;
+}
+.musicMini.compact {
+  flex: 0 0 auto;
+  min-width: 0;
+  max-width: 220px;
+  padding: 0;
+  border: none;
+  background: transparent;
+}
+.musicMini.compact:hover,
+.musicMini.compact.active {
+  border: none;
+  background: transparent;
+}
+.musicMini.compact .musicMiniInfo {
+  min-width: 0;
+  flex: 0 1 auto;
+}
+.musicMini.compact .musicMiniName {
+  max-width: 88px;
 }
 </style>

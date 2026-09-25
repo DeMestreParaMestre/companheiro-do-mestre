@@ -5,6 +5,33 @@ export interface Resistible {
 }
 
 // Ajusta o dano conforme resistência/vulnerabilidade/imunidade ao tipo informado.
+export type DamageAdjustment = 'immune' | 'resist' | 'vuln' | null
+
+export function damageAdjustment(c: Resistible, type: string): DamageAdjustment {
+  if (!type) return null
+  if ((c.immune || []).includes(type)) return 'immune'
+  if ((c.resist || []).includes(type)) return 'resist'
+  if ((c.vuln || []).includes(type)) return 'vuln'
+  return null
+}
+
+/** Aviso para o mestre quando o tipo bate em imunidade, resistência ou vulnerabilidade. */
+export function damageAdjustmentWarning(
+  name: string,
+  type: string,
+  raw: number,
+  adj: DamageAdjustment
+): string | null {
+  if (!adj || !type || raw <= 0) return null
+  if (adj === 'immune') return `${name} é imune a ${type}: não tomará dano (0 de ${raw}).`
+  if (adj === 'resist') {
+    const half = Math.floor(raw / 2)
+    return `${name} é resistente a ${type}: tomará metade do dano (${half} de ${raw}).`
+  }
+  if (adj === 'vuln') return `${name} é vulnerável a ${type}: tomará o dobro do dano (${raw * 2} de ${raw}).`
+  return null
+}
+
 export function effectiveDamage(c: Resistible, dmg: number, type: string): number {
   if (!type) return dmg
   if ((c.immune || []).includes(type)) return 0
@@ -32,5 +59,5 @@ export function hpStatus(hp: number, hpMax: number, dead: boolean): string {
 export function hpBarColor(hp: number, hpMax: number): string {
   if (hp > hpMax) return '#1a6b8a'
   const pct = hpPercent(hp, hpMax)
-  return pct > 50 ? '#2d6e2d' : pct > 25 ? '#9a7000' : '#8b0000'
+  return pct > 50 ? '#2d6e2d' : pct > 25 ? '#c48900' : '#c41e1e'
 }

@@ -91,6 +91,36 @@ export function createDevSeedCampaign(): Campaign {
         img: null,
         traits: [{ name: 'Ataque Surpresa', desc: '+2d6 de dano se surpreender o alvo.' }],
         actions: [{ name: 'Maça', desc: 'Ataque corpo a corpo +4, 2d8+2 contundente.' }]
+      },
+      {
+        id: 1004,
+        name: 'Dragão Branco Jovem',
+        hpMax: 133,
+        ac: 17,
+        initBonus: 0,
+        type: 'Dragão',
+        size: 'Grande',
+        alignment: 'Caótico Mau',
+        cr: '6',
+        speed: '12m, voo 24m',
+        str: 18,
+        dex: 10,
+        con: 18,
+        int: 6,
+        wis: 11,
+        cha: 12,
+        img: null,
+        traits: [
+          { name: 'Resistência Lendária (3/Dia)', desc: 'Se falhar num salvamento, pode escolher passar.' },
+          { name: 'Imunidade a Frio', desc: 'Imune a dano de frio.' }
+        ],
+        actions: [
+          { name: 'Multiataque', desc: 'Uma mordida e dois garras.' },
+          { name: 'Sopro de Gelo (Recarga 5–6)', desc: 'Cone 9m, CD 14 Constituição, 10d8 de frio.' }
+        ],
+        isLegendary: true,
+        legActionsMax: 3,
+        legResistMax: 3
       }
     ],
     personagens: [
@@ -220,6 +250,25 @@ export function createDevSeedCampaign(): Campaign {
         conditions: [],
         initBonus: null,
         personagemId: 2003
+      },
+      {
+        id: 4007,
+        name: 'Dragão Branco Jovem',
+        init: 5,
+        initReal: 5,
+        hp: 133,
+        hpMax: 133,
+        ac: 17,
+        fichaId: 1004,
+        dead: false,
+        conditions: [],
+        initBonus: 0,
+        isLegendary: true,
+        legActionsMax: 3,
+        legActions: 3,
+        legResistMax: 3,
+        legResist: 3,
+        resist: ['Cold']
       }
     ],
     itens: [
@@ -341,4 +390,21 @@ export function createDevSeedCampaign(): Campaign {
       }
     ]
   }
+}
+
+/** Completa a sandbox já persistida com o chefe lendário (sem apagar o resto). */
+export function ensureDevLegendaryBoss(camp: Campaign): void {
+  const fresh = createDevSeedCampaign()
+  const ficha = fresh.fichas.find((f) => f.id === 1004)
+  const boss = fresh.creatures.find((c) => c.id === 4007)
+  if (ficha && !camp.fichas.some((f) => f.id === 1004)) camp.fichas.push(ficha)
+  else if (ficha) {
+    const existing = camp.fichas.find((f) => f.id === 1004)
+    if (existing && !existing.isLegendary) {
+      existing.isLegendary = true
+      existing.legActionsMax = 3
+      existing.legResistMax = 3
+    }
+  }
+  if (boss && !camp.creatures.some((c) => c.id === 4007)) camp.creatures.push(boss)
 }

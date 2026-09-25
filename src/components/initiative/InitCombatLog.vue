@@ -3,6 +3,10 @@ import { computed } from 'vue'
 import { useCampaignStore } from '../../stores/campaign'
 import { appAlert } from '../../composables/useAppDialog'
 
+defineEmits<{
+  close: []
+}>()
+
 const store = useCampaignStore()
 const camp = computed(() => store.activeCampaign)
 
@@ -35,6 +39,7 @@ async function sendLogToDiary() {
       <span style="display: flex; gap: 0.4rem">
         <button class="btn btnRed sm" @click="sendLogToDiary">Enviar ao Diário</button>
         <button class="btn btnOut sm" @click="clearLog">Limpar</button>
+        <button class="btn btnOut sm" title="Fechar" @click="$emit('close')">✕</button>
       </span>
     </div>
     <div v-if="!(camp.combatLog || []).length" class="empty" style="padding: 0.8rem">Sem registros ainda.</div>

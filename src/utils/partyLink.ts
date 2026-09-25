@@ -76,7 +76,12 @@ export function buildCreatureFromPartyMember(
     dead: stats.dead,
     conditions: [],
     initBonus: ficha && ficha.initBonus != null ? ficha.initBonus : null,
-    personagemId: stats.personagemId
+    personagemId: stats.personagemId,
+    isLegendary: ficha?.isLegendary,
+    legActionsMax: ficha?.legActionsMax,
+    legActions: ficha?.isLegendary && ficha.legActionsMax ? ficha.legActionsMax : undefined,
+    legResistMax: ficha?.legResistMax,
+    legResist: ficha?.isLegendary && ficha.legResistMax ? ficha.legResistMax : undefined
   }
 }
 

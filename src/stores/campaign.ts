@@ -170,7 +170,7 @@ export const useCampaignStore = defineStore('campaign', () => {
   async function ensureDevSeed(hadPersistedData: boolean) {
     if (!import.meta.env.DEV) return
 
-    const { createDevSeedCampaign, DEV_CAMPAIGN_ID } = await import('../dev/seedCampaign')
+    const { createDevSeedCampaign, DEV_CAMPAIGN_ID, ensureDevLegendaryBoss } = await import('../dev/seedCampaign')
     const reset = import.meta.env.VITE_DEV_SEED_RESET === 'true'
     let sandbox = campaigns.value.find((c) => c.id === DEV_CAMPAIGN_ID)
 
@@ -187,6 +187,7 @@ export const useCampaignStore = defineStore('campaign', () => {
         campaigns.value.push(sandbox)
       }
     }
+    ensureDevLegendaryBoss(sandbox)
 
     // Sem dados salvos: abre direto na sandbox. Com dados: só cria se faltar.
     if (!hadPersistedData || import.meta.env.VITE_DEV_SEED_ACTIVE === 'true') {

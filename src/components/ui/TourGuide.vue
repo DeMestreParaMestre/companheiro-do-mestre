@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onBeforeUnmount } from 'vue'
 import { tourOpen } from '../../composables/useTour'
+import { placeHoverTip } from '../../utils/hoverTip'
 
 interface Step {
   group: string
@@ -33,7 +34,7 @@ const STEPS: Step[] = [
   {
     group: 'Iniciativa', sel: at('init-add'),
     title: 'Adicionar à luta',
-    text: 'Coloque monstros, NPCs ou jogadores no combate:',
+    text: 'O formulário fica recolhido durante o combate. Clique em Adicionar à iniciativa para colocar monstros, NPCs ou jogadores:',
     items: [
       'Vincular Ficha: escolha uma ficha e nome, HP e CA são preenchidos sozinhos.',
       'Init: digite o valor ou clique em 🎲 para rolar d20 + bônus de iniciativa da ficha.',
@@ -43,22 +44,22 @@ const STEPS: Step[] = [
   {
     group: 'Iniciativa', sel: at('init-toolbar'),
     title: 'Controles do combate',
-    text: 'Tudo o que muda o andamento da luta:',
+    text: 'Na barra: próximo turno, referências e rodada. O restante fica em Mais ▾:',
     items: [
       '▶ Próximo Turno: passa a vez e conta as rodadas (as condições com duração expiram sozinhas).',
+      '📌 Referências: abre suas anotações por cima do combate.',
       '↺ Reiniciar: volta para o primeiro da ordem, na rodada 1.',
       'Configurar Party: define os jogadores fixos, que entram em todo combate novo.',
       'Novo Combate: limpa os inimigos e pede a iniciativa da party.',
       '⚔ Encontros: coloca um encontro pronto (montado em Fichas) na luta.',
       '☽ Long Rest: recupera a vida da party e zera os testes contra a morte.',
-      '📌 Referências: abre suas anotações por cima do combate.',
       '📜 Log: histórico de dano, cura e turnos, que pode ir para o Diário.'
     ]
   },
   {
     group: 'Iniciativa', sel: at('init-music'),
     title: 'Trilha sonora',
-    text: 'Toque as músicas e playlists da aba Músicas sem sair do combate.'
+    text: 'O ícone 🎵 na barra do combate toca as músicas e playlists da aba Músicas sem sair da luta.'
   },
   {
     group: 'Iniciativa', sel: '.section.active .cRow', optional: true,
@@ -68,13 +69,14 @@ const STEPS: Step[] = [
       'O número é a iniciativa: verde para jogadores, vermelho para inimigos.',
       'Clique no nome para ver a imagem da ficha.',
       '📋 abre o statblock, ✏ edita, ↑↓ ajustam a ordem, ✕ remove.',
-      'Monstros lendários mostram as ações lendárias (⚡): clique para gastar.'
+      'Monstros lendários mostram ⚡ e 🛡 com os usos restantes: clique para gastar.',
+      'Condições ativas aparecem como etiquetas ao lado do nome.'
     ]
   },
   {
     group: 'Iniciativa', sel: '.section.active .cRow .hpArea', optional: true,
     title: 'Vida',
-    text: 'O ✚ roxo abre dano, cura e HP temporário. A barra muda de cor conforme a vida cai. Um jogador com 0 de HP mostra os testes contra a morte.'
+    text: 'O ✚ roxo abre dano, cura e HP temporário. O número e a barra ganham destaque; abaixo de 25% ficam vermelhos. Um jogador com 0 de HP mostra os testes contra a morte.'
   },
   {
     group: 'Iniciativa', sel: '.section.active .cRow .sdWrap', optional: true,
@@ -270,6 +272,8 @@ const STEPS: Step[] = [
 
 const i = ref(0)
 const rect = ref<DOMRect | null>(null)
+const tipEl = ref<HTMLElement | null>(null)
+const tipSize = ref({ width: 360, height: 280 })
 const step = computed(() => STEPS[i.value])
 const TIP_W = 360
 const PAD = 6
@@ -298,6 +302,13 @@ function measure() {
   rect.value = target(step.value)?.getBoundingClientRect() ?? null
 }
 
+async function measureTip() {
+  await nextTick()
+  const el = tipEl.value
+  if (!el) return
+  tipSize.value = { width: el.offsetWidth, height: el.offsetHeight }
+}
+
 async function go(n: number, dir = 1) {
   const token = ++seq
   for (; n >= 0 && n < STEPS.length; n += dir) {
@@ -312,6 +323,7 @@ async function go(n: number, dir = 1) {
       i.value = n
       el?.scrollIntoView({ block: 'center' })
       measure()
+      void measureTip()
       return
     }
   }
@@ -364,12 +376,13 @@ const tipStyle = computed(() => {
   const r = rect.value
   const w = Math.min(TIP_W, window.innerWidth - 24)
   if (!r) return { width: w + 'px', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }
-  const left = Math.min(Math.max(r.left + r.width / 2 - w / 2, 12), window.innerWidth - w - 12)
-  const room = 260
-  // Abaixo do alvo se couber; senão acima; alvo maior que a tela: preso no rodapé.
-  if (r.bottom + room < window.innerHeight) return { width: w + 'px', left: left + 'px', top: r.bottom + PAD + 10 + 'px' }
-  if (r.top > room) return { width: w + 'px', left: left + 'px', bottom: window.innerHeight - r.top + PAD + 10 + 'px' }
-  return { width: w + 'px', left: left + 'px', bottom: '16px' }
+  const p = placeHoverTip(
+    { top: r.top, bottom: r.bottom, left: r.left + r.width / 2 - w / 2 },
+    { width: w, height: tipSize.value.height },
+    { w: window.innerWidth, h: window.innerHeight },
+    PAD + 10
+  )
+  return { width: w + 'px', left: p.left + 'px', top: p.top + 'px' }
 })
 </script>
 
@@ -377,7 +390,7 @@ const tipStyle = computed(() => {
   <div v-if="tourOpen && step" class="tour" role="dialog" aria-modal="true" :aria-label="step.title">
     <div class="tourBlock" :class="{ dim: !spotStyle }" />
     <div v-if="spotStyle" class="tourSpot" :style="spotStyle" />
-    <div class="tourTip" :style="tipStyle" aria-live="polite">
+    <div ref="tipEl" class="tourTip" :style="tipStyle" aria-live="polite">
       <small class="tourCount">{{ step.group }} · {{ i + 1 }}/{{ STEPS.length }}</small>
       <h4>{{ step.title }}</h4>
       <p>{{ step.text }}</p>
