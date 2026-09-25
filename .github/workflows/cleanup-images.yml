@@ -18,13 +18,18 @@ jobs:
     timeout-minutes: 15
     env:
       DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
     steps:
       - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
 
-      - name: Conferir secret
+      - name: Conferir secrets
         run: |
-          if [ -z "$DB_URL" ]; then
-            echo "::error::Configure o secret SUPABASE_DB_URL."
+          if [ -z "$DB_URL" ] || [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "::error::Configure SUPABASE_DB_URL, VITE_SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY."
             exit 1
           fi
 
@@ -35,10 +40,11 @@ jobs:
           sudo apt-get install -y -qq postgresql-client-17 > /dev/null
           echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
 
-      # Aplica a função (pode rodar de novo) e apaga só o que nenhuma campanha usa.
+      # Lista no banco; apaga pela API (DELETE direto nas tabelas do Storage é bloqueado).
       - name: Limpar órfãs
         run: |
           set -euo pipefail
           export PGCONNECT_TIMEOUT=30
           psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/0007_cleanup_orphan_images.sql
-          psql "$DB_URL" -v ON_ERROR_STOP=1 -c "select removed as imagens_apagadas from public.cleanup_orphan_images();"
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -tA -c "select name from public.list_orphan_images();" \
+            | node scripts/cleanup-orphan-images.mjs
