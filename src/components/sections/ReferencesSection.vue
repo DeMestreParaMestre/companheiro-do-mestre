@@ -3,7 +3,7 @@ import { ref, reactive, computed, watch, nextTick } from 'vue'
 import { useCampaignStore } from '../../stores/campaign'
 import { REF_TYPES } from '../../constants'
 import type { Reference } from '../../types'
-import { fileToDataUrl } from '../../utils/image'
+import { fileToDataUrl, IMAGE_FILE_ACCEPT, IMAGE_TYPE_ERROR } from '../../utils/image'
 import { groupReferences } from '../../utils/refGroups'
 import { emptyTable, serializeTableContent } from '../../utils/refTable'
 import { validateReferenceForm, type RefFormErrors, type RefFormField } from '../../utils/refValidation'
@@ -185,7 +185,14 @@ async function addReference() {
 
   const name = form.name.trim()
   let img: string | null = null
-  if (form.type === 'imagem' && file) img = await fileToDataUrl(file)
+  if (form.type === 'imagem' && file) {
+    try {
+      img = await fileToDataUrl(file)
+    } catch (e) {
+      toast.show(e instanceof Error ? e.message : IMAGE_TYPE_ERROR, 'error', 5500)
+      return
+    }
+  }
 
   if (!camp.value.references) camp.value.references = []
   camp.value.references.push({
@@ -329,7 +336,14 @@ async function saveEdit() {
   r.url = edit.url.trim() || null
   r.catParent = edit.catParent.trim()
   r.catChild = edit.catChild.trim()
-  if (file) r.img = await fileToDataUrl(file)
+  if (file) {
+    try {
+      r.img = await fileToDataUrl(file)
+    } catch (e) {
+      toast.show(e instanceof Error ? e.message : IMAGE_TYPE_ERROR, 'error', 5500)
+      return
+    }
+  }
   edit.open = false
   toast.show(`Referência "${name}" atualizada.`, 'success')
 }
@@ -404,7 +418,7 @@ function openImage(r: Reference) {
         :class="{ hasError: !!formErrors.img }"
       >
         <label class="ulabel" @click="fImg?.click()">⬡ Clique para carregar imagem <span class="req" title="Obrigatório">*</span></label>
-        <input ref="fImg" type="file" accept="image/*" @change="delete formErrors.img" />
+        <input ref="fImg" type="file" :accept="IMAGE_FILE_ACCEPT" @change="delete formErrors.img" />
         <p v-if="formErrors.img" class="fieldError">{{ formErrors.img }}</p>
       </div>
       <div
@@ -565,7 +579,7 @@ function openImage(r: Reference) {
           ⬡ {{ edit.img ? 'Trocar imagem' : 'Carregar imagem' }}
           <span v-if="!edit.img" class="req" title="Obrigatório">*</span>
         </label>
-        <input ref="eImg" type="file" accept="image/*" @change="delete editErrors.img" />
+        <input ref="eImg" type="file" :accept="IMAGE_FILE_ACCEPT" @change="delete editErrors.img" />
         <div v-if="edit.img" style="margin-top: 0.5rem; text-align: center">
           <img :src="edit.img" style="max-height: 120px; border-radius: 3px; border: 1px solid var(--border)" />
         </div>

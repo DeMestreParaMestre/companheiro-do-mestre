@@ -46,4 +46,15 @@ describe('imageStore', () => {
     const { data } = await toRemote(camp(IMG))
     await expect(fromRemote(fakeStorage().sb, 'u1', data, [])).rejects.toThrow()
   })
+
+  it('não sobe SVG nem troca por referência de Storage', async () => {
+    const svg = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg=='
+    const { data, blobs } = await toRemote(camp(svg))
+    expect(data.fichas[0].img).toBe(svg)
+    expect(blobs.size).toBe(0)
+    const { sb, files } = fakeStorage()
+    await uploadMissing(sb, 'u1', new Map([['x', svg]]), new Set())
+    expect(files.size).toBe(0)
+  })
 })
+
