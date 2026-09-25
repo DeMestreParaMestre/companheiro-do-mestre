@@ -36,6 +36,8 @@ const ERRORS: [RegExp, string][] = [
   [/rate limit|too many|for security purposes/i, 'Muitas tentativas. Aguarde um minuto e tente de novo.'],
   [/password.*(at least|characters|weak)/i, 'Senha fraca: use pelo menos 8 caracteres, com letras e números.'],
   [/same.*password|different from the old/i, 'A nova senha precisa ser diferente da atual.'],
+  [/feedback rate limit/i, 'Você enviou várias mensagens seguidas. Aguarde um pouco antes de mandar outra.'],
+  [/relation "public\.feedback"|feedback.*does not exist/i, 'Envio de feedback ainda não configurado (rode o SQL 0006_feedback no Supabase).'],
   [/captcha/i, 'Não foi possível confirmar que você não é um robô. Tente de novo.'],
   [/code verifier|auth code|pkce/i, 'Abra o link no mesmo navegador em que você pediu o e-mail.'],
   [/reauthenticat|nonce/i, 'Código de confirmação inválido ou expirado. Peça um novo código.'],
@@ -183,6 +185,17 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = null
   }
 
+  async function sendFeedback(f: { kind: 'problema' | 'sugestao' | 'outro'; message: string; contact: string | null; page: string }) {
+    const sb = await client()
+    await run(
+      sb.from('feedback').insert({
+        ...f,
+        user_agent: navigator.userAgent.slice(0, 400),
+        app_version: ((import.meta.env.VITE_RELEASE as string | undefined) || 'dev').slice(0, 12)
+      })
+    )
+  }
+
   const displayName = computed(() => (user.value?.user_metadata?.display_name as string | undefined)?.trim() || '')
 
   return {
@@ -204,6 +217,7 @@ export const useAuthStore = defineStore('auth', () => {
     listSessions,
     revokeSession,
     deleteAccount,
+    sendFeedback,
     signOut
   }
 })
