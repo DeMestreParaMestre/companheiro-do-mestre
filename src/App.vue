@@ -15,6 +15,7 @@ import ToastHost from './components/ui/ToastHost.vue'
 import AppDialog from './components/ui/AppDialog.vue'
 import WelcomeModal from './components/ui/WelcomeModal.vue'
 import TourGuide from './components/ui/TourGuide.vue'
+import LandingPage from './components/LandingPage.vue'
 
 // Seções fora da aba inicial: baixadas e montadas só na primeira abertura, depois ficam vivas.
 const FichasSection = defineAsyncComponent(() => import('./components/sections/FichasSection.vue'))
@@ -38,8 +39,22 @@ watch(
   (on) => on && opened.add('sMusic')
 )
 
+const SKIP_LANDING = 'nc_skip_landing'
 const auth = useAuthStore()
 const sync = useSyncStore()
+const showLanding = ref(
+  location.hash !== '#player' && !location.search.includes('code=') && !localStorage.getItem(SKIP_LANDING)
+)
+
+function enterMesa() {
+  localStorage.setItem(SKIP_LANDING, '1')
+  showLanding.value = false
+}
+
+function openLanding() {
+  localStorage.removeItem(SKIP_LANDING)
+  showLanding.value = true
+}
 
 onMounted(async () => {
   await Promise.all([store.init(), auth.init()])
@@ -50,24 +65,27 @@ onMounted(async () => {
 </script>
 
 <template>
-  <AppHeader />
-  <AppNav :active="active" @change="active = $event" />
-  <template v-if="ready">
-    <InitiativeSection :active="active === 'sInit'" />
-    <FichasSection v-if="opened.has('sFichas')" :active="active === 'sFichas'" />
-    <PersonagensSection v-if="opened.has('sPJs')" :active="active === 'sPJs'" />
-    <ItensSection v-if="opened.has('sItens')" :active="active === 'sItens'" />
-    <SpellsSection v-if="opened.has('sSpells')" :active="active === 'sSpells'" />
-    <MusicSection v-if="opened.has('sMusic')" :active="active === 'sMusic'" />
-    <ReferencesSection v-if="opened.has('sRefs')" :active="active === 'sRefs'" />
-    <DiarySection v-if="opened.has('sDiary')" :active="active === 'sDiary'" />
+  <LandingPage v-if="showLanding" @enter="enterMesa" />
+  <template v-else>
+    <AppHeader />
+    <AppNav :active="active" @change="active = $event" />
+    <template v-if="ready">
+      <InitiativeSection :active="active === 'sInit'" />
+      <FichasSection v-if="opened.has('sFichas')" :active="active === 'sFichas'" />
+      <PersonagensSection v-if="opened.has('sPJs')" :active="active === 'sPJs'" />
+      <ItensSection v-if="opened.has('sItens')" :active="active === 'sItens'" />
+      <SpellsSection v-if="opened.has('sSpells')" :active="active === 'sSpells'" />
+      <MusicSection v-if="opened.has('sMusic')" :active="active === 'sMusic'" />
+      <ReferencesSection v-if="opened.has('sRefs')" :active="active === 'sRefs'" />
+      <DiarySection v-if="opened.has('sDiary')" :active="active === 'sDiary'" />
+    </template>
+    <div v-else class="empty">⟳ Sincronizando campanhas…</div>
   </template>
-  <div v-else class="empty">⟳ Sincronizando campanhas…</div>
-  <AppFooter />
-  <DiceRoller />
+  <AppFooter :home="!showLanding" :tight="showLanding" @home="openLanding" />
+  <DiceRoller v-if="!showLanding" />
   <ToastHost />
   <SyncConflictModal />
   <AppDialog />
-  <WelcomeModal v-if="ready" />
+  <WelcomeModal v-if="ready && !showLanding" />
   <TourGuide />
 </template>

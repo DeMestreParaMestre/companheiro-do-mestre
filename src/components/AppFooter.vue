@@ -7,12 +7,18 @@ const FeedbackModal = defineAsyncComponent(() => import('./ui/FeedbackModal.vue'
 const CONTACT = 'guilhermemmarquess@gmail.com'
 const year = new Date().getFullYear()
 const auth = useAuthStore()
+defineProps<{ home?: boolean; tight?: boolean }>()
 const feedbackOpen = ref(false)
+defineEmits<{ home: [] }>()
 </script>
 
 <template>
-  <footer class="appFooter">
+  <footer class="appFooter" :class="{ tight }">
     <nav class="footLinks">
+      <template v-if="home">
+        <button type="button" class="footFeedback" @click="$emit('home')">Início</button>
+        <span aria-hidden="true">·</span>
+      </template>
       <button v-if="auth.configured" type="button" class="footFeedback" @click="feedbackOpen = true">Enviar feedback</button>
       <a v-else :href="'mailto:' + CONTACT + '?subject=Feedback%20-%20Companheiro%20do%20Mestre'">Enviar feedback</a>
       <span aria-hidden="true">·</span>
@@ -50,6 +56,10 @@ const feedbackOpen = ref(false)
   max-width: 760px;
   margin: 2rem auto 0;
   padding: 1.2rem 1rem 2rem;
+}
+.appFooter.tight {
+  margin-top: 0;
+  padding-top: 1.2rem;
   border-top: 1px solid var(--border);
   text-align: center;
   font-family: var(--fN);
