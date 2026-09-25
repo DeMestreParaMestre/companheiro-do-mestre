@@ -52,6 +52,34 @@ export function partyMemberHpLabel(camp: Campaign, m: PartyMember): string {
   return String(m.hpMax)
 }
 
+export function isPartyName(camp: Campaign, name: string): boolean {
+  return camp.party.some((p) => p.name === name)
+}
+
+export function buildCreatureFromPartyMember(
+  camp: Campaign,
+  m: PartyMember,
+  init: number,
+  id = Date.now()
+): Creature {
+  const stats = combatStatsFromPartyMember(camp, m)
+  const ficha = camp.fichas.find((f) => f.name === m.name)
+  return {
+    id,
+    name: m.name,
+    init,
+    initReal: init,
+    hp: stats.hp,
+    hpMax: stats.hpMax,
+    ac: stats.ac,
+    fichaId: ficha ? ficha.id : '',
+    dead: stats.dead,
+    conditions: [],
+    initBonus: ficha && ficha.initBonus != null ? ficha.initBonus : null,
+    personagemId: stats.personagemId
+  }
+}
+
 export function combatStatsFromPartyMember(
   camp: Campaign,
   m: PartyMember

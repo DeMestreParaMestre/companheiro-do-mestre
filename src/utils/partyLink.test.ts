@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest'
 import {
   personagemCurrentHp,
   combatStatsFromPartyMember,
+  buildCreatureFromPartyMember,
+  isPartyName,
   syncPersonagemFromCreature,
   syncFromPersonagem,
   migratePartyLinks
@@ -30,6 +32,23 @@ describe('partyLink', () => {
   it('builds combat stats from linked party member', () => {
     const stats = combatStatsFromPartyMember(camp, camp.party[0])
     expect(stats).toEqual({ hp: 28, hpMax: 32, ac: 18, personagemId: 1, dead: false })
+  })
+
+  it('detects party names and builds a creature from the member', () => {
+    expect(isPartyName(camp, 'Aldric')).toBe(true)
+    expect(isPartyName(camp, 'Goblin')).toBe(false)
+    const creature = buildCreatureFromPartyMember(camp, camp.party[0], 14, 7)
+    expect(creature).toMatchObject({
+      id: 7,
+      name: 'Aldric',
+      init: 14,
+      initReal: 14,
+      hp: 28,
+      hpMax: 32,
+      ac: 18,
+      personagemId: 1,
+      dead: false
+    })
   })
 
   it('syncs creature damage to personagem', () => {
