@@ -1,0 +1,22 @@
+---
+description: Como escrever e rodar testes Vitest
+globs: "**/*.test.ts"
+alwaysApply: false
+---
+
+# Testes
+
+Vitest (`npm test`). Colocar `foo.test.ts` ao lado de `foo.ts` em `src/utils/` (ou `src/dev/`).
+
+Testar regras puras: combate, iniciativa, sync, party, condições, imagens, log. Não montar a árvore Vue inteira sem necessidade.
+
+```ts
+// ✅ função pura + campanha mínima
+const camp = { party: [{ name: 'Aldric', hpMax: 32, ac: 18 }], creatures: [] }
+
+// ❌ depender de Pinia, DOM ou rede no teste de regra
+```
+
+Espelhar o estilo dos testes vizinhos (`describe` / `it` / `expect`, fixtures pequenas). Depois de mudar regra de jogo ou sync, acrescentar ou ajustar um caso no teste existente.
+
+Checagem de tipos: `npx vue-tsc --noEmit -p tsconfig.app.json`. O CI (`ci.yml`) roda testes + build em todo PR para `main`.

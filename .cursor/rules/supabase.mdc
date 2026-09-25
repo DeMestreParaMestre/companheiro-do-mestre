@@ -1,0 +1,17 @@
+---
+description: Banco, Auth, Storage e migrations Supabase
+globs: supabase/**/*,src/stores/auth.ts,src/stores/sync.ts
+alwaysApply: false
+---
+
+# Supabase
+
+Migrations em `supabase/migrations/` — numerar em sequência (`0008_…`). Não editar migration já aplicada no projeto remoto; crie outra.
+
+RLS por `auth.uid()`. Funções que precisam de service role ou segredo (Brevo, Vault) ficam em SQL `security definer` + `pg_net`, não no frontend.
+
+Imagens: bucket via Storage API. Não dar `DELETE` direto em `storage.objects` (a limpeza órfã usa `scripts/cleanup-orphan-images.mjs`).
+
+Secrets de runtime: Vault (e-mail) e GitHub Actions (`VITE_SUPABASE_*`, Sentry, Turnstile). Nunca commitar `.env` com chaves.
+
+O client no browser usa só a anon key (`VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY`). Backup do banco: workflow `backup.yml` + `supabase/BACKUP.md`.

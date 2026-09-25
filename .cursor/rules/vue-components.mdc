@@ -1,0 +1,29 @@
+---
+description: Convenções Vue 3 do app (script setup, seções, combate)
+globs: src/components/**/*.vue,src/App.vue
+alwaysApply: false
+---
+
+# Componentes Vue
+
+`<script setup lang="ts">`. Estilos globais em `src/assets/styles.css` (classes `.btn`, `.card`, `.fRow`); scoped só para layout do próprio arquivo.
+
+Seções em `src/components/sections/`. Combate: orquestração em `InitiativeSection.vue`, pedaços em `src/components/initiative/`. Não voltar a juntar tudo num arquivo só.
+
+Modais: `BaseModal` + `open` / `@close`. Diálogos do app: `appAlert` / `appConfirm` (`useAppDialog`), não `window.alert`.
+
+Tour: âncoras `data-tour="..."` já usadas pelo `TourGuide` — não remover.
+
+```vue
+<!-- ❌ lógica de dano no .vue -->
+<script setup>
+function apply(c, n) { c.hp -= n }
+</script>
+
+<!-- ✅ UI emite / chama utils -->
+<script setup>
+import { effectiveDamage } from '../../utils/combat'
+</script>
+```
+
+Imports relativos como o resto do arquivo (`../../stores`, `../../utils`). `defineAsyncComponent` para seções pesadas (já usado no `App.vue`).
