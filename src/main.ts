@@ -1,5 +1,13 @@
 import { createApp } from 'vue'
 import './assets/styles.css'
+import { isStaleChunkError, reloadForNewVersion } from './utils/staleChunk'
+
+window.addEventListener('vite:preloadError', (e) => {
+  if (reloadForNewVersion()) e.preventDefault()
+})
+window.addEventListener('unhandledrejection', (e) => {
+  if (isStaleChunkError(e.reason)) reloadForNewVersion()
+})
 
 // Modo "tela de jogador": janela pop-up separada (segundo monitor) que apenas
 // espelha o combate recebido via BroadcastChannel, sem a interface do mestre.

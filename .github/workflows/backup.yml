@@ -62,7 +62,7 @@ jobs:
           shred -u backup.sql.gz
           echo "STAMP=$(date -u +%F)" >> "$GITHUB_ENV"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: backup-${{ env.STAMP }}
           path: backup.sql.gz.gpg
