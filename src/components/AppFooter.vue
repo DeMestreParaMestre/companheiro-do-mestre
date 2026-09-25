@@ -1,11 +1,21 @@
 <script setup lang="ts">
+import { ref, defineAsyncComponent } from 'vue'
+import { useAuthStore } from '../stores/auth'
+
+const FeedbackModal = defineAsyncComponent(() => import('./ui/FeedbackModal.vue'))
+
 const CONTACT = 'guilhermemmarquess@gmail.com'
 const year = new Date().getFullYear()
+const auth = useAuthStore()
+const feedbackOpen = ref(false)
 </script>
 
 <template>
   <footer class="appFooter">
     <nav class="footLinks">
+      <button v-if="auth.configured" type="button" class="footFeedback" @click="feedbackOpen = true">Enviar feedback</button>
+      <a v-else :href="'mailto:' + CONTACT + '?subject=Feedback%20-%20Companheiro%20do%20Mestre'">Enviar feedback</a>
+      <span aria-hidden="true">·</span>
       <a href="termos.html">Termos de Uso</a>
       <span aria-hidden="true">·</span>
       <a href="privacidade.html">Política de Privacidade</a>
@@ -31,6 +41,7 @@ const year = new Date().getFullYear()
     </details>
 
     <p class="footCopy">© {{ year }} De Mestre Para Mestre</p>
+    <FeedbackModal v-if="feedbackOpen" :open="feedbackOpen" @close="feedbackOpen = false" />
   </footer>
 </template>
 
@@ -48,8 +59,18 @@ const year = new Date().getFullYear()
 .appFooter a {
   color: var(--muted);
 }
-.appFooter a:hover {
+.appFooter a:hover,
+.footFeedback:hover {
   color: var(--red);
+}
+.footFeedback {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--muted);
+  text-decoration: underline;
+  cursor: pointer;
 }
 .footLinks {
   display: flex;
