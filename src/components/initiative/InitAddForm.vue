@@ -5,6 +5,7 @@ import type { PartyMember } from '../../types'
 import { rollInitiative } from '../../utils/dice'
 import { isInInitiative as creatureInInitiative, partyMembersNotInInitiative, sortCreaturesPreservingTurn } from '../../utils/initiative'
 import { appAlert } from '../../composables/useAppDialog'
+import { applyLegendaryFields } from '../../utils/legendary'
 
 const emit = defineEmits<{
   readd: [member: PartyMember]
@@ -22,6 +23,14 @@ const cHpMax = ref('')
 const cAc = ref('')
 const cQty = ref('1')
 const initBonusHint = ref('')
+const expanded = ref(false)
+
+function expand() {
+  expanded.value = true
+}
+function collapse() {
+  expanded.value = false
+}
 
 const partyNotInInitiative = computed(() =>
   partyMembersNotInInitiative(camp.value.party, camp.value.creatures)
@@ -81,7 +90,7 @@ async function addCreature() {
   const initBonus = f && f.initBonus != null ? f.initBonus : null
   const wasEmpty = !camp.value.creatures.length
   for (let i = 0; i < qty; i++) {
-    camp.value.creatures.push({
+    const creature = {
       id: Date.now() + i,
       name: qty > 1 ? `${name} ${i + 1}` : name,
       init,
@@ -93,7 +102,15 @@ async function addCreature() {
       dead: false,
       conditions: [],
       initBonus
-    })
+    }
+    if (f?.isLegendary) {
+      applyLegendaryFields(creature, {
+        isLegendary: true,
+        actionsMax: f.legActionsMax,
+        resistMax: f.legResistMax
+      })
+    }
+    camp.value.creatures.push(creature)
   }
   camp.value.currentTurn = sortCreaturesPreservingTurn(camp.value.creatures, camp.value.currentTurn)
   if (wasEmpty) camp.value.currentTurn = -1
@@ -105,10 +122,18 @@ async function addCreature() {
   cFichaLink.value = ''
   initBonusHint.value = ''
 }
+
+defineExpose({ expand, collapse })
 </script>
 
 <template>
-  <div class="card" data-tour="init-add">
+  <div v-if="!expanded" data-tour="init-add" style="margin-bottom: 0.75rem">
+    <button class="btn btnOut sm" type="button" @click="expanded = true">+ Adicionar à iniciativa</button>
+  </div>
+  <div v-else class="card" data-tour="init-add">
+    <div style="display: flex; justify-content: flex-end; margin: -0.25rem 0 0.45rem">
+      <button class="btn btnOut sm" type="button" @click="expanded = false">Recolher</button>
+    </div>
     <div class="fRow">
       <div class="fGrp">
         <label>Vincular Ficha</label>

@@ -19,6 +19,9 @@ export interface Creature {
   isLegendary?: boolean
   legActionsMax?: number
   legActions?: number
+  /** Resistência lendária (usos / dia). Não recarrega no turno. */
+  legResistMax?: number
+  legResist?: number
   conditionDurations?: Record<string, number>
   /** PJ vinculado (sync de HP com Personagens). */
   personagemId?: number
@@ -63,6 +66,9 @@ export interface Ficha {
   // Dados antigos podem estar como string; use toEntries() para normalizar.
   traits?: StatEntry[] | string | null
   actions?: StatEntry[] | string | null
+  isLegendary?: boolean
+  legActionsMax?: number
+  legResistMax?: number
 }
 
 export interface PartyMember {
@@ -119,6 +125,7 @@ export interface EncounterSlot {
   immune?: string[]
   isLegendary?: boolean
   legActionsMax?: number
+  legResistMax?: number
 }
 
 export interface EncounterTemplate {

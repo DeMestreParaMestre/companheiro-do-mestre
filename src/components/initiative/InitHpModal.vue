@@ -3,7 +3,7 @@ import { reactive, computed } from 'vue'
 import { DAMAGE_TYPES } from '../../constants'
 import type { Creature } from '../../types'
 import { useCampaignStore } from '../../stores/campaign'
-import { effectiveDamage } from '../../utils/combat'
+import { damageAdjustment, damageAdjustmentWarning, effectiveDamage } from '../../utils/combat'
 import { appendCombatLog } from '../../utils/combatLog'
 import { isPartyName, syncPersonagemFromCreature } from '../../utils/partyLink'
 import {
@@ -19,6 +19,14 @@ const camp = computed(() => store.activeCampaign)
 
 const hpModal = reactive({ open: false, id: 0, name: '', amount: '', dmgType: '', lastType: 'dmg' })
 const concentration = reactive({ open: false, name: '', cd: 0 })
+
+const target = computed(() => camp.value.creatures.find((x) => x.id === hpModal.id))
+const dmgWarning = computed(() => {
+  const c = target.value
+  const raw = parseInt(hpModal.amount) || 0
+  if (!c || !hpModal.dmgType || raw <= 0) return null
+  return damageAdjustmentWarning(c.name, hpModal.dmgType, raw, damageAdjustment(c, hpModal.dmgType))
+})
 
 function open(c: Creature) {
   hpModal.id = c.id
@@ -108,6 +116,7 @@ defineExpose({ open })
           <option v-for="t in DAMAGE_TYPES" :key="t" :value="t">{{ t }}</option>
         </select>
       </div>
+      <p v-if="dmgWarning" class="hpDmgWarn">{{ dmgWarning }}</p>
       <div style="display: flex; gap: 0.5rem; justify-content: center; margin-top: 0.7rem">
         <button class="btn btnDng" @click="applyHp('dmg')">Dano</button>
         <button class="btn btnRed" @click="applyHp('heal')">Cura</button>
@@ -128,3 +137,18 @@ defineExpose({ open })
     </div>
   </BaseModal>
 </template>
+
+<style scoped>
+.hpDmgWarn {
+  font-family: var(--fB);
+  font-size: 0.88rem;
+  line-height: 1.4;
+  color: #8b5a00;
+  background: #fff3cd;
+  border: 1px solid var(--gold);
+  border-radius: 3px;
+  padding: 0.45rem 0.6rem;
+  margin: 0.35rem 0 0;
+  text-align: left;
+}
+</style>

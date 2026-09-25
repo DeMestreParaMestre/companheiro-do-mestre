@@ -34,6 +34,9 @@ function hasStatblock(f: Ficha) {
           <span v-if="ficha.speed"><strong>Deslocamento</strong> {{ ficha.speed }}</span>
           <span v-if="ficha.cr"><strong>CR</strong> {{ ficha.cr }}</span>
           <span v-if="ficha.initBonus != null"><strong>Init</strong> {{ ficha.initBonus >= 0 ? '+' : '' }}{{ ficha.initBonus }}</span>
+          <span v-if="ficha.isLegendary"
+            ><strong>Lendário</strong> {{ ficha.legActionsMax || 3 }} ações · {{ ficha.legResistMax || 3 }} resist.</span
+          >
         </div>
         <div
           v-if="ficha.str || ficha.dex || ficha.con || ficha.int || ficha.wis || ficha.cha"

@@ -5,6 +5,7 @@ import type { Creature, Ficha, Reference, PartyMember } from '../../types'
 import { useSettingsStore } from '../../stores/settings'
 import { hpBarColor } from '../../utils/combat'
 import { adjustTurnAfterRemove } from '../../utils/initiative'
+import { placeHoverTip } from '../../utils/hoverTip'
 import { isPartyName, syncPersonagemFromCreature } from '../../utils/partyLink'
 import { applyLongRestToParty } from '../../utils/longRest'
 import { appendCombatLog } from '../../utils/combatLog'
@@ -33,11 +34,13 @@ import {
   DEATH_SAVE_MAX
 } from '../../utils/deathSaves'
 import { appAlert, appConfirm } from '../../composables/useAppDialog'
+import { useReactionTracker } from '../../composables/useReactionTracker'
 
 const props = defineProps<{ active: boolean }>()
 
 const store = useCampaignStore()
 const camp = computed(() => store.activeCampaign)
+const reaction = useReactionTracker()
 
 function log(text: string) {
   appendCombatLog(camp.value, text)
@@ -101,6 +104,7 @@ function fichaName(c: Creature) {
 
 function onTurnStart(c: Creature) {
   if (c.isLegendary && c.legActionsMax) c.legActions = c.legActionsMax
+  reaction.onTurnStart(c.id)
   if (isUnconscious(c) && !c.stable) log(`${c.name}: salvamento contra morte`)
 }
 function tickDurations() {
@@ -123,6 +127,7 @@ function nextTurn() {
   if (!c.creatures.length) return
   const alive = c.creatures.filter((x) => !x.dead)
   if (!alive.length) return
+  addForm.value?.collapse()
   const prev = c.currentTurn
   if (prev === -1) {
     let n = 0
@@ -149,6 +154,7 @@ function nextTurn() {
 function resetTurns() {
   camp.value.currentTurn = -1
   camp.value.round = 0
+  reaction.clear()
 }
 function moveCreature(id: number, dir: number) {
   const list = camp.value.creatures
@@ -173,6 +179,13 @@ function spendLeg(c: Creature) {
 }
 function resetLeg(c: Creature) {
   c.legActions = c.legActionsMax || 0
+}
+function spendLegResist(c: Creature) {
+  if (!c.legResist) return
+  c.legResist--
+}
+function resetLegResist(c: Creature) {
+  c.legResist = c.legResistMax || 0
 }
 
 const openStatusId = ref<number | null>(null)
@@ -208,9 +221,14 @@ function posTip(e: MouseEvent) {
   const el = e.currentTarget as HTMLElement
   const t = el.querySelector('.tip') as HTMLElement | null
   if (!t) return
+  t.style.visibility = 'hidden'
+  t.style.display = 'block'
   const r = el.getBoundingClientRect()
-  t.style.top = r.bottom + 6 + 'px'
-  t.style.left = Math.min(r.left, window.innerWidth - 280) + 'px'
+  const p = placeHoverTip(r, t.getBoundingClientRect(), { w: window.innerWidth, h: window.innerHeight })
+  t.style.top = p.top + 'px'
+  t.style.left = p.left + 'px'
+  t.style.visibility = ''
+  t.style.display = ''
 }
 function hideTip(e: MouseEvent) {
   const t = (e.currentTarget as HTMLElement).querySelector('.tip') as HTMLElement | null
@@ -264,6 +282,7 @@ function openRefImage(r: Reference) {
 const showLog = ref(false)
 const musicPicker = ref(false)
 
+const addForm = ref<{ expand: () => void; collapse: () => void } | null>(null)
 const hpModal = ref<{ open: (c: Creature) => void } | null>(null)
 const customStatusModal = ref<{ open: (c: Creature) => void } | null>(null)
 const editModal = ref<{ open: (c: Creature) => void } | null>(null)
@@ -344,9 +363,8 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="section" :class="{ active }">
-    <h2 class="sTitle">Controlador de Iniciativa</h2>
-    <InitAddForm @readd="readdModal?.open($event)" />
+  <div class="section initSection" :class="{ active }">
+    <InitAddForm ref="addForm" @readd="readdModal?.open($event)" />
 
     <InitToolbar
       :round="camp.round || 0"
@@ -359,18 +377,23 @@ onBeforeUnmount(() => {
       @long-rest="longRestParty"
       @refs="refsModal?.open()"
       @toggle-log="showLog = !showLog"
-    />
+    >
+      <template #music>
+        <MusicMiniBar compact data-tour="init-music" :on-pick="() => (musicPicker = true)" />
+      </template>
+    </InitToolbar>
 
-    <MusicMiniBar data-tour="init-music" style="margin-bottom: 0.75rem" :on-pick="() => (musicPicker = true)" />
-
-    <InitCombatLog v-if="showLog" />
+    <InitCombatLog v-if="showLog" @close="showLog = false" />
 
     <div v-if="camp.currentTurn >= 0 && camp.currentTurn < camp.creatures.length" class="tBanner">
       Turno de: {{ camp.creatures[camp.currentTurn].name }} (Init {{ camp.creatures[camp.currentTurn].init }})
     </div>
 
     <div>
-      <div v-if="!camp.creatures.length" class="empty">Nenhuma criatura.</div>
+      <div v-if="!camp.creatures.length" class="initEmpty">
+        <p>Nenhuma criatura no combate.</p>
+        <button class="btn btnDng initEmptyBtn" type="button" @click="newCombatModal?.open()">⬡ Novo Combate</button>
+      </div>
       <template v-for="row in rows" :key="'div' in row ? 'div' + row.div : row.c.id">
         <div v-if="'div' in row" class="divLine"><hr /><span>⬡ Init {{ row.div }}</span><hr /></div>
         <InitCreatureRow
@@ -385,7 +408,10 @@ onBeforeUnmount(() => {
           :hp-pct="hpPct(row.c)"
           :hp-color="hpColor(row.c)"
           :ficha-name="fichaName(row.c)"
+          :show-reaction="reaction.enabled"
+          :reaction-spent="reaction.isSpent(row.c.id)"
           @image="openImageFromCreature(row.c)"
+          @toggle-reaction="reaction.toggle(row.c.id)"
           @remove-cond="removeCond(row.c, $event)"
           @pos-tip="posTip"
           @hide-tip="hideTip"
@@ -393,6 +419,8 @@ onBeforeUnmount(() => {
           @death-failure="markDeathSaveFailure(row.c)"
           @spend-leg="spendLeg(row.c)"
           @reset-leg="resetLeg(row.c)"
+          @spend-leg-resist="spendLegResist(row.c)"
+          @reset-leg-resist="resetLegResist(row.c)"
           @open-hp="hpModal?.open(row.c)"
           @toggle-status="toggleSD(row.c.id)"
           @cond-change="(k, e) => onCondChange(row.c, k, e)"
@@ -411,7 +439,7 @@ onBeforeUnmount(() => {
   <InitCustomStatusModal ref="customStatusModal" />
   <InitEditCreatureModal ref="editModal" />
   <InitPartyModal ref="partyModal" @readd="readdModal?.open($event)" />
-  <InitNewCombatModal ref="newCombatModal" />
+  <InitNewCombatModal ref="newCombatModal" @started="addForm?.expand()" />
   <InitReaddModal ref="readdModal" />
   <MusicPickerModal :open="musicPicker" @close="musicPicker = false" />
   <InitRefsModal ref="refsModal" @open-image="openRefImage" />
@@ -419,3 +447,20 @@ onBeforeUnmount(() => {
   <ImagePopup :open="popup.open" :name="popup.name" :img="popup.img" @close="popup.open = false" />
   <InitEncountersModal ref="encountersModal" />
 </template>
+
+<style scoped>
+.initEmpty {
+  text-align: center;
+  padding: 2.6rem 1.2rem 2.2rem;
+}
+.initEmpty p {
+  font-family: var(--fB);
+  color: var(--muted);
+  font-style: italic;
+  margin-bottom: 1.1rem;
+}
+.initEmptyBtn {
+  font-size: 1.2rem;
+  padding: 0.85rem 1.8rem;
+}
+</style>

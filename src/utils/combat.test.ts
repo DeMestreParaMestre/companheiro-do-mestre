@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { effectiveDamage, hpPercent, hpStatus } from './combat'
+import { damageAdjustment, damageAdjustmentWarning, effectiveDamage, hpPercent, hpStatus } from './combat'
 
 describe('effectiveDamage', () => {
   it('mantém o dano sem tipo informado', () => {
@@ -16,6 +16,31 @@ describe('effectiveDamage', () => {
   })
   it('imunidade tem prioridade sobre vulnerabilidade', () => {
     expect(effectiveDamage({ immune: ['Fire'], vuln: ['Fire'] }, 10, 'Fire')).toBe(0)
+  })
+})
+
+describe('damageAdjustmentWarning', () => {
+  it('avisa metade do dano na resistência', () => {
+    expect(damageAdjustment({ resist: ['Cold'] }, 'Cold')).toBe('resist')
+    expect(damageAdjustmentWarning('Dragão', 'Cold', 12, 'resist')).toBe(
+      'Dragão é resistente a Cold: tomará metade do dano (6 de 12).'
+    )
+  })
+  it('avisa nenhum dano na imunidade', () => {
+    expect(damageAdjustment({ immune: ['Fire'] }, 'Fire')).toBe('immune')
+    expect(damageAdjustmentWarning('Dragão', 'Fire', 10, 'immune')).toBe(
+      'Dragão é imune a Fire: não tomará dano (0 de 10).'
+    )
+  })
+  it('avisa o dobro do dano na vulnerabilidade', () => {
+    expect(damageAdjustment({ vuln: ['Acid'] }, 'Acid')).toBe('vuln')
+    expect(damageAdjustmentWarning('Troll', 'Acid', 7, 'vuln')).toBe(
+      'Troll é vulnerável a Acid: tomará o dobro do dano (14 de 7).'
+    )
+  })
+  it('não avisa sem tipo ou sem ajuste', () => {
+    expect(damageAdjustmentWarning('Goblin', '', 8, 'resist')).toBeNull()
+    expect(damageAdjustmentWarning('Goblin', 'Fire', 8, null)).toBeNull()
   })
 })
 

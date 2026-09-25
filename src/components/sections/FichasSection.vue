@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, watch } from 'vue'
 import { useCampaignStore } from '../../stores/campaign'
 import type { Ficha, StatEntry, EncounterSlot, EncounterTemplate } from '../../types'
 import { templateSummary } from '../../utils/encounters'
+import { legendaryFromForm } from '../../utils/legendary'
 import { searchMonsters, type MonsterCandidate } from '../../utils/open5e'
 import { toEntries, hasEntries } from '../../utils/statblock'
 import BaseModal from '../ui/BaseModal.vue'
@@ -40,7 +41,10 @@ const form = reactive({
   con: '',
   int: '',
   wis: '',
-  cha: ''
+  cha: '',
+  isLegendary: false,
+  legMax: '',
+  legResistMax: ''
 })
 const formTraits = reactive<StatEntry[]>([])
 const formActions = reactive<StatEntry[]>([])
@@ -79,11 +83,37 @@ function num(v: string): number | null {
 }
 
 function resetForm() {
-  Object.keys(form).forEach((k) => ((form as Record<string, string>)[k] = ''))
+  form.name = ''
+  form.hpMax = ''
+  form.ac = ''
+  form.initBonus = ''
+  form.type = ''
+  form.size = ''
+  form.alignment = ''
+  form.cr = ''
+  form.speed = ''
+  form.str = ''
+  form.dex = ''
+  form.con = ''
+  form.int = ''
+  form.wis = ''
+  form.cha = ''
+  form.isLegendary = false
+  form.legMax = ''
+  form.legResistMax = ''
   formTraits.splice(0)
   formActions.splice(0)
   formImg.value = null
 }
+
+watch(
+  () => form.isLegendary,
+  (on) => {
+    if (!on) return
+    if (!form.legMax) form.legMax = '3'
+    if (!form.legResistMax) form.legResistMax = '3'
+  }
+)
 
 function showAddForm() {
   showForm.value = true
@@ -124,7 +154,8 @@ async function addFicha() {
     wis: num(form.wis),
     cha: num(form.cha),
     traits: cleanEntries(formTraits),
-    actions: cleanEntries(formActions)
+    actions: cleanEntries(formActions),
+    ...legendaryFromForm(form.isLegendary, form.legMax, form.legResistMax)
   })
   hideAddForm()
 }
@@ -178,7 +209,8 @@ function metaText(f: Ficha) {
     f.hpMax ? 'HP:' + f.hpMax : '',
     f.ac ? 'AC:' + f.ac : '',
     f.initBonus != null ? 'Init:' + (f.initBonus >= 0 ? '+' : '') + f.initBonus : '',
-    f.cr ? 'CR ' + f.cr : ''
+    f.cr ? 'CR ' + f.cr : '',
+    f.isLegendary ? 'Lendário' : ''
   ]
     .filter(Boolean)
     .join(' · ')
@@ -205,7 +237,10 @@ const edit = reactive({
   cha: '',
   traits: [] as StatEntry[],
   actions: [] as StatEntry[],
-  img: null as string | null
+  img: null as string | null,
+  isLegendary: false,
+  legMax: '',
+  legResistMax: ''
 })
 function s(v: number | null | undefined) {
   return v != null ? String(v) : ''
@@ -230,8 +265,20 @@ function openEdit(f: Ficha) {
   edit.traits = toEntries(f.traits)
   edit.actions = toEntries(f.actions)
   edit.img = f.img
+  edit.isLegendary = !!f.isLegendary
+  edit.legMax = s(f.legActionsMax)
+  edit.legResistMax = s(f.legResistMax)
   edit.open = true
 }
+
+watch(
+  () => edit.isLegendary,
+  (on) => {
+    if (!on) return
+    if (!edit.legMax) edit.legMax = '3'
+    if (!edit.legResistMax) edit.legResistMax = '3'
+  }
+)
 async function saveEdit() {
   const f = camp.value.fichas.find((x) => x.id === edit.id)
   if (!f) return
@@ -254,6 +301,7 @@ async function saveEdit() {
   f.traits = cleanEntries(edit.traits)
   f.actions = cleanEntries(edit.actions)
   f.img = edit.img
+  Object.assign(f, legendaryFromForm(edit.isLegendary, edit.legMax, edit.legResistMax))
   edit.open = false
 }
 
@@ -366,13 +414,15 @@ function draftToSlot(sl: EncSlotDraft): EncounterSlot | null {
   const hpMax = parseInt(sl.hpMax) || 1
   const ac = sl.ac.trim() ? parseInt(sl.ac) : null
   const ib = sl.initBonus.trim() ? parseInt(sl.initBonus) : null
+  const f = sl.fichaId ? camp.value.fichas.find((x) => String(x.id) === String(sl.fichaId)) : undefined
   return {
     name,
     fichaId: sl.fichaId || '',
     hpMax,
     ac: ac != null && !isNaN(ac) ? ac : null,
     qty,
-    initBonus: ib != null && !isNaN(ib) ? ib : null
+    initBonus: ib != null && !isNaN(ib) ? ib : null,
+    ...legendaryFromForm(!!f?.isLegendary, f?.legActionsMax, f?.legResistMax)
   }
 }
 
@@ -447,6 +497,17 @@ async function removeEncounter(id: number) {
           <div class="fGrp" style="max-width: 72px"><label>AC</label><input v-model="form.ac" type="number" /></div>
           <div class="fGrp" style="max-width: 90px"><label>Init. Bonus</label><input v-model="form.initBonus" type="number" placeholder="+2" /></div>
           <div class="fGrp"><label>Tipo</label><input v-model="form.type" type="text" placeholder="Ex: Humanoide" /></div>
+        </div>
+        <div class="fRow" style="align-items: center">
+          <label style="display: flex; align-items: center; gap: 0.4rem; text-transform: none">
+            <input v-model="form.isLegendary" type="checkbox" style="width: auto" /> Criatura lendária
+          </label>
+          <div v-if="form.isLegendary" class="fGrp" style="max-width: 130px">
+            <label>Ações lendárias</label><input v-model="form.legMax" type="number" min="1" placeholder="3" />
+          </div>
+          <div v-if="form.isLegendary" class="fGrp" style="max-width: 150px">
+            <label>Resist. lendária</label><input v-model="form.legResistMax" type="number" min="1" placeholder="3" />
+          </div>
         </div>
 
         <button class="btn btnOut sm" style="margin-bottom: 0.5rem" @click="showAdvanced = !showAdvanced">
@@ -583,6 +644,17 @@ async function removeEncounter(id: number) {
         <div class="fGrp" style="max-width: 80px"><label>HP Máx</label><input v-model="edit.hpMax" type="number" /></div>
         <div class="fGrp" style="max-width: 68px"><label>AC</label><input v-model="edit.ac" type="number" /></div>
         <div class="fGrp" style="max-width: 85px"><label>Init. Bonus</label><input v-model="edit.initBonus" type="number" /></div>
+      </div>
+      <div class="fRow" style="align-items: center">
+        <label style="display: flex; align-items: center; gap: 0.4rem; text-transform: none">
+          <input v-model="edit.isLegendary" type="checkbox" style="width: auto" /> Criatura lendária
+        </label>
+        <div v-if="edit.isLegendary" class="fGrp" style="max-width: 130px">
+          <label>Ações lendárias</label><input v-model="edit.legMax" type="number" min="1" placeholder="3" />
+        </div>
+        <div v-if="edit.isLegendary" class="fGrp" style="max-width: 150px">
+          <label>Resist. lendária</label><input v-model="edit.legResistMax" type="number" min="1" placeholder="3" />
+        </div>
       </div>
       <div class="fRow">
         <div class="fGrp"><label>Tipo</label><input v-model="edit.type" type="text" /></div>

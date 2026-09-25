@@ -5,10 +5,16 @@ import { rollInitiative } from '../../utils/dice'
 import { sortCreaturesPreservingTurn } from '../../utils/initiative'
 import { buildCreatureFromPartyMember } from '../../utils/partyLink'
 import { appConfirm } from '../../composables/useAppDialog'
+import { useReactionTracker } from '../../composables/useReactionTracker'
 import BaseModal from '../ui/BaseModal.vue'
+
+const emit = defineEmits<{
+  started: []
+}>()
 
 const store = useCampaignStore()
 const camp = computed(() => store.activeCampaign)
+const reaction = useReactionTracker()
 
 const newCombat = reactive({ open: false, inits: [] as string[] })
 
@@ -24,6 +30,8 @@ async function open() {
       camp.value.creatures = []
       camp.value.currentTurn = -1
       camp.value.round = 0
+      reaction.clear()
+      emit('started')
     }
     return
   }
@@ -40,12 +48,14 @@ function startNewCombat() {
   c.creatures = []
   c.currentTurn = -1
   c.round = 0
+  reaction.clear()
   c.party.forEach((m, i) => {
     const init = parseInt(newCombat.inits[i]) || 0
     c.creatures.push(buildCreatureFromPartyMember(c, m, init, Date.now() + i))
   })
   sortCreaturesPreservingTurn(c.creatures, -1)
   newCombat.open = false
+  emit('started')
 }
 
 defineExpose({ open })
