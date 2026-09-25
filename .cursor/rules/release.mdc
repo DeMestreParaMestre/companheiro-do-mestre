@@ -10,7 +10,7 @@ Semver em `package.json` (`2.0.0`). A UI lê `appVersionLabel()` (`src/utils/app
 
 1. PR → `main` (CI). O site **não** muda.
 2. Actions → **Release** → `main` → `patch` / `minor` / `major` (ou `current` se a tag ainda não existir).
-3. Isso cria `vX.Y.Z`, o GitHub Release e dispara **Deploy to GitHub Pages** na `main`.
+3. O bump vai por um PR (`chore(release): vX.Y.Z`), espera o CI, mergeia, cria a tag, o GitHub Release e dispara **Deploy to GitHub Pages**. Não commitar direto na `main` (ruleset).
 
 Não usar `workflow_call` com expressões `||` sem aspas no YAML (quebra o parser). O ambiente Pages só aceita a branch `main`, não tags.
 
