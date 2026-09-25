@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { reactive, onMounted, onBeforeUnmount } from 'vue'
 import PlayerBoard from '../components/ui/PlayerBoard.vue'
+import UpdateRequiredModal from '../components/ui/UpdateRequiredModal.vue'
 import { PLAYER_CHANNEL, type PlayerMessage, type PlayerState } from '../utils/playerChannel'
 
 const state = reactive<PlayerState>({
@@ -42,6 +43,7 @@ onBeforeUnmount(() => channel?.close())
     :creatures="state.creatures"
     :party-names="state.partyNames"
   />
+  <UpdateRequiredModal />
 </template>
 
 <style scoped>

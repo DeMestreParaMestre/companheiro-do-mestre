@@ -129,6 +129,7 @@ textarea{resize:vertical;min-height:80px}
 .tBadge{display:inline-block;font-family:var(--fN);font-size:.62rem;font-weight:600;padding:.1rem .35rem;border-radius:2px;background:var(--bg3);border:1px solid var(--border);color:var(--muted);margin-bottom:.3rem;text-transform:uppercase;letter-spacing:.4px}
 .mOv{display:none;position:fixed;inset:0;background:rgba(20,10,5,.75);z-index:200;align-items:center;justify-content:center}
 .mOv.open{display:flex}
+.mOv.elevated{z-index:500}
 .modal{text-align:left;background:var(--bg2);border:2px solid var(--border2);border-radius:4px;padding:1.4rem;min-width:270px;max-width:92vw;position:relative;max-height:90vh;overflow-y:auto;box-shadow:4px 6px 20px rgba(0,0,0,.28)}
 .modal::before{content:'';display:block;height:4px;background:var(--red);margin:-1.4rem -1.4rem 1rem;border-radius:2px 2px 0 0}
 .modal h3{font-family:var(--fH);font-weight:700;color:var(--red);margin-bottom:.85rem;font-size:1.1rem}

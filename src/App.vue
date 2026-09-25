@@ -13,6 +13,7 @@ import DiceRoller from './components/ui/DiceRoller.vue'
 import InitiativeSection from './components/sections/InitiativeSection.vue'
 import ToastHost from './components/ui/ToastHost.vue'
 import AppDialog from './components/ui/AppDialog.vue'
+import UpdateRequiredModal from './components/ui/UpdateRequiredModal.vue'
 import WelcomeModal from './components/ui/WelcomeModal.vue'
 import TourGuide from './components/ui/TourGuide.vue'
 import LandingPage from './components/LandingPage.vue'
@@ -86,6 +87,7 @@ onMounted(async () => {
   <ToastHost />
   <SyncConflictModal />
   <AppDialog />
+  <UpdateRequiredModal />
   <WelcomeModal v-if="ready && !showLanding" />
   <TourGuide />
 </template>
