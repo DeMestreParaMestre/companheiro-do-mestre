@@ -35,6 +35,7 @@ const ERRORS: [RegExp, string][] = [
   [/rate limit|too many|for security purposes/i, 'Muitas tentativas. Aguarde um minuto e tente de novo.'],
   [/password.*(at least|characters|weak)/i, 'Senha fraca: use pelo menos 8 caracteres, com letras e números.'],
   [/same.*password|different from the old/i, 'A nova senha precisa ser diferente da atual.'],
+  [/captcha/i, 'Não foi possível confirmar que você não é um robô. Tente de novo.'],
   [/code verifier|auth code|pkce/i, 'Abra o link no mesmo navegador em que você pediu o e-mail.'],
   [/reauthenticat|nonce/i, 'Código de confirmação inválido ou expirado. Peça um novo código.'],
   [/new email.*same|email.*same as/i, 'Este já é o seu e-mail atual.'],
@@ -98,21 +99,22 @@ export const useAuthStore = defineStore('auth', () => {
     return r
   }
 
-  async function signIn(email: string, password: string) {
+  // captchaToken: exigido pelo Supabase quando a proteção por captcha está ligada no painel.
+  async function signIn(email: string, password: string, captchaToken?: string) {
     const sb = await client()
-    await run(sb.auth.signInWithPassword({ email, password }))
+    await run(sb.auth.signInWithPassword({ email, password, options: { captchaToken } }))
   }
 
   /** Retorna true se precisa confirmar o e-mail antes de entrar. */
-  async function signUp(email: string, password: string): Promise<boolean> {
+  async function signUp(email: string, password: string, captchaToken?: string): Promise<boolean> {
     const sb = await client()
-    const { data } = await run(sb.auth.signUp({ email, password, options: { emailRedirectTo: redirectTo() } }))
+    const { data } = await run(sb.auth.signUp({ email, password, options: { emailRedirectTo: redirectTo(), captchaToken } }))
     return !data.session
   }
 
-  async function sendMagicLink(email: string) {
+  async function sendMagicLink(email: string, captchaToken?: string) {
     const sb = await client()
-    await run(sb.auth.signInWithOtp({ email, options: { emailRedirectTo: redirectTo(), shouldCreateUser: true } }))
+    await run(sb.auth.signInWithOtp({ email, options: { emailRedirectTo: redirectTo(), shouldCreateUser: true, captchaToken } }))
   }
 
   /** Sai da página para o Google; volta com ?code=, tratado em init(). */
@@ -121,9 +123,9 @@ export const useAuthStore = defineStore('auth', () => {
     await run(sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: redirectTo() } }))
   }
 
-  async function sendPasswordReset(email: string) {
+  async function sendPasswordReset(email: string, captchaToken?: string) {
     const sb = await client()
-    await run(sb.auth.resetPasswordForEmail(email, { redirectTo: redirectTo() }))
+    await run(sb.auth.resetPasswordForEmail(email, { redirectTo: redirectTo(), captchaToken }))
   }
 
   /** nonce = código enviado por reauthenticate() quando o login não é recente ("Secure password change"). */

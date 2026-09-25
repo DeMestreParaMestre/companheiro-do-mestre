@@ -3,6 +3,7 @@ import { ref, computed, watch } from 'vue'
 import { useAuthStore, authErrorMessage } from '../../stores/auth'
 import { useToast } from '../../composables/useToast'
 import BaseModal from './BaseModal.vue'
+import TurnstileWidget from './TurnstileWidget.vue'
 
 const toast = useToast()
 const props = defineProps<{ open: boolean }>()
@@ -19,6 +20,7 @@ const busy = ref(false)
 const error = ref('')
 /** Depois de enviar um e-mail: mostra a tela "verifique sua caixa de entrada". */
 const sentTo = ref('')
+const captcha = ref<InstanceType<typeof TurnstileWidget> | null>(null)
 
 const TABS: { k: Mode; l: string }[] = [
   { k: 'signin', l: 'Entrar' },
@@ -85,19 +87,22 @@ async function submit() {
       await auth.updatePassword(password.value)
       toast.show('Senha alterada. Você já está conectado.')
       close()
-    } else if (mode.value === 'signin') {
-      await auth.signIn(e, password.value)
-      toast.show('Bem-vindo de volta, Mestre!')
-      close()
-    } else if (mode.value === 'magic') {
-      await auth.sendMagicLink(e)
-      sentTo.value = e
-    } else if (mode.value === 'signup') {
-      if (await auth.signUp(e, password.value)) sentTo.value = e
-      else close()
     } else {
-      await auth.sendPasswordReset(e)
-      sentTo.value = e
+      const token = await captcha.value?.token()
+      if (mode.value === 'signin') {
+        await auth.signIn(e, password.value, token)
+        toast.show('Bem-vindo de volta, Mestre!')
+        close()
+      } else if (mode.value === 'magic') {
+        await auth.sendMagicLink(e, token)
+        sentTo.value = e
+      } else if (mode.value === 'signup') {
+        if (await auth.signUp(e, password.value, token)) sentTo.value = e
+        else close()
+      } else {
+        await auth.sendPasswordReset(e, token)
+        sentTo.value = e
+      }
     }
   } catch (err) {
     error.value = authErrorMessage(err)
@@ -192,6 +197,8 @@ function close() {
           <label for="authPass2">Confirmar senha</label>
           <input id="authPass2" v-model="password2" :type="showPass ? 'text' : 'password'" autocomplete="new-password" placeholder="••••••••" />
         </div>
+
+        <TurnstileWidget v-if="!recovery" ref="captcha" />
 
         <p v-if="error" class="authError" role="alert">{{ error }}</p>
 
