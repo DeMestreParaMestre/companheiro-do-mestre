@@ -2,7 +2,7 @@ name: Release
 
 # Corta uma versão semântica a partir da branch escolhida (use main).
 # patch = correção, minor = feature, major = quebra, current = taga o número já no package.json.
-# Depois da tag, chama o deploy (push de tag com GITHUB_TOKEN não dispara outro workflow).
+# Depois da tag, dispara o deploy na main (o Pages só publica a partir dela).
 
 on:
   workflow_dispatch:
@@ -20,6 +20,7 @@ on:
 
 permissions:
   contents: write
+  actions: write
 
 concurrency:
   group: release
@@ -28,8 +29,6 @@ concurrency:
 jobs:
   release:
     runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -58,16 +57,7 @@ jobs:
         run: |
           VERSION=$(node -p "require('./package.json').version")
           gh release create "v$VERSION" --generate-notes --title "v$VERSION"
-      - id: version
-        run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
-
-  deploy:
-    needs: release
-    uses: ./.github/workflows/deploy.yml
-    with:
-      ref: v${{ needs.release.outputs.version }}
-    secrets: inherit
-    permissions:
-      contents: read
-      pages: write
-      id-token: write
+      - name: Deploy site
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run "Deploy to GitHub Pages" --ref main

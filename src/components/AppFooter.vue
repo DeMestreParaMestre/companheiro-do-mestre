@@ -47,7 +47,8 @@ defineEmits<{ home: [] }>()
       <p>Companheiro do Mestre é um projeto independente, sem afiliação ou endosso da Wizards of the Coast.</p>
     </details>
 
-    <p class="footCopy">© {{ year }} De Mestre Para Mestre · {{ appVersionLabel() }}</p>
+    <p class="footCopy">© {{ year }} De Mestre Para Mestre</p>
+    <p class="footVer">{{ appVersionLabel() }}</p>
     <FeedbackModal v-if="feedbackOpen" :open="feedbackOpen" @close="feedbackOpen = false" />
   </footer>
 </template>
@@ -57,15 +58,15 @@ defineEmits<{ home: [] }>()
   max-width: 760px;
   margin: 2rem auto 0;
   padding: 1.2rem 1rem 2rem;
+  text-align: center;
+  font-family: var(--fN);
+  font-size: 0.75rem;
+  color: var(--muted);
 }
 .appFooter.tight {
   margin-top: 0;
   padding-top: 1.2rem;
   border-top: 1px solid var(--border);
-  text-align: center;
-  font-family: var(--fN);
-  font-size: 0.75rem;
-  color: var(--muted);
 }
 .appFooter a {
   color: var(--muted);
@@ -86,6 +87,8 @@ defineEmits<{ home: [] }>()
 .footLinks {
   display: flex;
   justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
   gap: 0.5rem;
 }
 .footLegal {
@@ -107,5 +110,10 @@ defineEmits<{ home: [] }>()
 .footCopy {
   margin-top: 0.7rem;
   opacity: 0.8;
+}
+.footVer {
+  margin-top: 0.2rem;
+  opacity: 0.7;
+  font-variant-numeric: tabular-nums;
 }
 </style>
