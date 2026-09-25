@@ -10,7 +10,8 @@ Semver em `package.json` (`2.0.0`). A UI lê `appVersionLabel()` (`src/utils/app
 
 1. PR → `main` (CI). O site **não** muda.
 2. Actions → **Release** → `main` → `patch` / `minor` / `major` (ou `current` se a tag ainda não existir).
-3. O bump vai por um PR (`chore(release): vX.Y.Z`), espera o CI, mergeia, cria a tag, o GitHub Release e dispara **Deploy to GitHub Pages**. Não commitar direto na `main` (ruleset).
+3. O bump vai por um PR (`chore(release): vX.Y.Z`), espera o CI ser enfileirado e passar, mergeia, cria a tag, o GitHub Release e dispara **Deploy to GitHub Pages**. Não commitar direto na `main` (ruleset).
+   Se o CI do bot pedir aprovação (colaborador novo), aprove o workflow no PR; o Release fica esperando até 10 min.
 
 Não usar `workflow_call` com expressões `||` sem aspas no YAML (quebra o parser). O ambiente Pages só aceita a branch `main`, não tags.
 

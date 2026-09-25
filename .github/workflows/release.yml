@@ -31,6 +31,7 @@ concurrency:
 jobs:
   release:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
         with:
@@ -57,9 +58,31 @@ jobs:
           git commit -m "chore(release): v$VERSION"
           git push -u origin "$BRANCH"
           gh pr create --base main --head "$BRANCH" --title "chore(release): v$VERSION" --body "Bump automático do workflow Release."
-          # O check ainda não existe no primeiro segundo.
-          sleep 20
-          gh pr checks --watch --fail-fast
+
+          deadline=$((SECONDS + 600))
+          while (( SECONDS < deadline )); do
+            set +e
+            out=$(gh pr checks 2>&1)
+            set -e
+            if echo "$out" | grep -qi "no checks reported"; then
+              echo "Aguardando o CI ser enfileirado…"
+              sleep 10
+              continue
+            fi
+            if echo "$out" | grep -qiE "action_required|waiting for approval"; then
+              echo "CI pedindo aprovação no PR. Aguardando…"
+              sleep 15
+              continue
+            fi
+            break
+          done
+          if echo "$out" | grep -qi "no checks reported"; then
+            echo "$out"
+            echo "CI não apareceu em 10 min."
+            exit 1
+          fi
+
+          gh pr checks --watch --fail-fast --interval 5
           gh pr merge --squash --delete-branch --subject "chore(release): v$VERSION"
           git fetch origin main
           git checkout -B main origin/main
