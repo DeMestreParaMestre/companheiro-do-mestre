@@ -83,6 +83,8 @@ begin
     headers := jsonb_build_object('api-key', api_key, 'Content-Type', 'application/json', 'Accept', 'application/json'),
     body := jsonb_build_object(
       'sender', jsonb_build_object('name', 'Companheiro do Mestre', 'email', sender),
+      -- "Responder" no e-mail vai direto para quem enviou (se deixou um e-mail válido).
+      'replyTo', jsonb_build_object('email', case when new.contact ~ '^[^@\s]+@[^@\s]+\.[^@\s]+$' then new.contact else sender end),
       'to', jsonb_build_array(jsonb_build_object('email', dest)),
       'subject', '[Feedback] ' || label || ' #' || new.id,
       'htmlContent',
