@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, defineAsyncComponent } from 'vue'
 import { useAuthStore } from '../stores/auth'
+import { appVersionLabel } from '../utils/appVersion'
 
 const FeedbackModal = defineAsyncComponent(() => import('./ui/FeedbackModal.vue'))
 
@@ -46,7 +47,7 @@ defineEmits<{ home: [] }>()
       <p>Companheiro do Mestre é um projeto independente, sem afiliação ou endosso da Wizards of the Coast.</p>
     </details>
 
-    <p class="footCopy">© {{ year }} De Mestre Para Mestre</p>
+    <p class="footCopy">© {{ year }} De Mestre Para Mestre · {{ appVersionLabel() }}</p>
     <FeedbackModal v-if="feedbackOpen" :open="feedbackOpen" @close="feedbackOpen = false" />
   </footer>
 </template>
