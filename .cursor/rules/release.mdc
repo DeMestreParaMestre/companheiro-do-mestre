@@ -1,0 +1,19 @@
+---
+description: Versionamento semântico e publicação no GitHub Pages
+globs: .github/workflows/**,package.json,src/utils/appVersion.ts
+alwaysApply: false
+---
+
+# Release
+
+Semver em `package.json` (`2.0.0`). A UI lê `appVersionLabel()` (`src/utils/appVersion.ts`).
+
+1. PR → `main` (CI). O site **não** muda.
+2. Actions → **Release** → `main` → `patch` / `minor` / `major` (ou `current` se a tag ainda não existir).
+3. Isso cria `vX.Y.Z`, o GitHub Release e dispara **Deploy to GitHub Pages** na `main`.
+
+Não usar `workflow_call` com expressões `||` sem aspas no YAML (quebra o parser). O ambiente Pages só aceita a branch `main`, não tags.
+
+`current` falha se a tag já existe. Depois da `v2.0.0`, use `patch`/`minor`/`major`.
+
+Deploy avulso: Actions → **Deploy to GitHub Pages** → `main` (hotfix sem nova tag).

@@ -1,0 +1,25 @@
+---
+description: Fluxo de dados — campanha local, sync e stores
+globs: src/stores/**/*.ts,src/types.ts,src/utils/syncPlan.ts,src/utils/imageStore.ts,src/composables/useIdbStorage.ts
+alwaysApply: false
+---
+
+# Arquitetura
+
+A campanha ativa (`useCampaignStore().activeCampaign`) é a fonte da verdade na UI. Mutar o objeto no store; o `watch` agenda `persist()` (IndexedDB, fallback `localStorage`).
+
+```ts
+// ❌ persistir JSON paralelo
+localStorage.setItem('creatures', JSON.stringify(list))
+
+// ✅ mutar a campanha
+camp.value.creatures.push(nova)
+```
+
+Sync (`useSyncStore`) só entra com usuário logado. Decisão de upload/download/conflito está em `src/utils/syncPlan.ts` — não reimplementar no store. Imagens sobem ao Storage como `sbimg:<hash>`; no browser continuam data URL (`imageStore.ts`).
+
+A campanha `dev-sandbox` nunca vai para a nuvem.
+
+Stores: `campaign` (dados), `auth` (sessão), `sync` (nuvem), `settings` (tema), `musicPlayer`. Não criar store novo se o dado já vive na campanha.
+
+Tipos novos: `src/types.ts`. Defaults em `campaign.ts` (`newCampaign` / `ensureDefaults`).
